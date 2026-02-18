@@ -13,7 +13,8 @@ int main(void)
 	{
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
-		DrawRectangle(300, 100, 100, 100, BLUE);
+		DrawRectangle(300, 100, 100, 100, GIORNOGOLD);
+
 
 
 		DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
