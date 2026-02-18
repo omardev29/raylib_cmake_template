@@ -33,7 +33,7 @@ project(ray_test)
 
 
 #Add raylib, and here you would add other libraries if needed!
-add_subdirectory(thirdparty/raylib-5.0)
+add_subdirectory(thirdparty/raylib-5.5)
 add_subdirectory(thirdparty/imgui-docking)
 add_subdirectory(thirdparty/rlImGui)
 
