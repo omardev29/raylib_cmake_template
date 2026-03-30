@@ -97,6 +97,8 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 
 ## How the Linking Works
 
+(if you don't care about how the linking works you can just skip all of this and go to - [Building](#building))
+
 This template compiles all three libraries **from source** and links them **statically** into your executable. There are no `.dll` or `.so` files to ship alongside your game — everything ends up in a single binary.
 
 ### The CMake chain
