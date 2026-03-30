@@ -10,7 +10,7 @@ int main(void) {
     ClearBackground(ALICEBLUE);
     DrawRectangle(300, 100, 100, 100, GIORNOGOLD);
 
-    DrawText("Template de raylib hecho por mí!", 190, 200, 20, LIGHTGRAY);
+    DrawText("Omar's raylib template!", 190, 200, 20, LIGHTGRAY);
 
     EndDrawing();
   }
