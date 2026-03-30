@@ -1,34 +1,21 @@
 #include "raylib.h"
-#include <iostream>
 
-int main(void)
-{
+int main(void) {
 
-	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-	InitWindow(800, 450, "raylib [core] example - basic window");
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+  InitWindow(800, 450, "raylib [core] example - basic window");
 
+  while (!WindowShouldClose()) {
+    BeginDrawing();
+    ClearBackground(ALICEBLUE);
+    DrawRectangle(300, 100, 100, 100, GIORNOGOLD);
 
+    DrawText("Template de raylib hecho por mí!", 190, 200, 20, LIGHTGRAY);
 
-	while (!WindowShouldClose())
-	{
-		BeginDrawing();
-		ClearBackground(RAYWHITE);
-		DrawRectangle(300, 100, 100, 100, GIORNOGOLD);
+    EndDrawing();
+  }
 
+  CloseWindow();
 
-
-		DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
-
-
-
-		EndDrawing();
-	}
-
-
-
-
-
-	CloseWindow();
-
-	return 0;
+  return 0;
 }
