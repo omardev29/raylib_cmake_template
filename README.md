@@ -206,6 +206,20 @@ You need the following installed before building:
 
 The three libraries (raylib, imgui, rlImGui) are included directly in `thirdparty/` as part of the repo — no package manager needed.
 
+- If you dont't have a compiler installed yet, i recommend installing gcc with a package manager:
+### Linux (apt)
+```bash
+sudo apt install build-essential
+```
+### Linux (pacman)
+```bash
+sudo pacman -S --needed base-devel
+```
+### Windows
+- You need to install choco first, and then:
+```bash
+choco install mingw
+```
 ---
 
 ## Building
