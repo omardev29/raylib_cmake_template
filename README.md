@@ -47,7 +47,7 @@ After you add a file, the changes should be automatically added but if you want 
 # NEW INFO
 # raylib CMake Template
 
-A batteries-included C++20 project template that handles all the boilerplate of linking [raylib](https://www.raylib.es/), [Dear ImGui](https://github.com/ocornut/imgui) (docking branch), and [rlImGui](https://github.com/raylib-extras/rlImGui) statically via CMake. Clone, configure, and start writing game code immediately.
+A batteries-included C++20 project template that handles all the boilerplate of linking [raylib](https://www.raylib.es/), [Dear ImGui](https://github.com/ocornut/imgui) (docking branch), and [rlImGui](https://github.com/raylib-extras/rlImGui) statically via CMake. Clone or use the template button, and start writing code immediately.
 
 Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmakeSetup).
 
