@@ -43,6 +43,9 @@ if (UNIX AND NOT APPLE)
 endif()
 
 # Main sources directory (the second parameter sets the output directory name to raylib)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "" FORCE)
+endif()
 add_subdirectory(src raylib)
 
 # Uninstall target
@@ -56,9 +59,5 @@ if(NOT TARGET uninstall)
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 endif()
 
-if (${BUILD_EXAMPLES})
-  MESSAGE(STATUS "Building examples is enabled")
-  add_subdirectory(examples)
-endif()
 
 enable_testing()
