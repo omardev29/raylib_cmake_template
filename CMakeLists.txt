@@ -5,10 +5,8 @@ cmake_minimum_required(VERSION 3.30)
 
 set(CMAKE_CXX_STANDARD 20)
 
-#! ! ! ! ! ! !
-#set this to true to ship the game!
 #basically this will change the RESOURCES_PATH to be the local path
-#! ! ! ! ! ! !
+
 #DELETE THE OUT FOLDER AFTER CHANGING THIS BECAUSE VISUAL STUDIO DOESN'T SEEM TO RECOGNIZE THIS CHANGE AND REBUILD!
 option(PRODUCTION_BUILD "Make this a production build" OFF)
 #DELETE THE OUT FOLDER AFTER CHANGING THIS BECAUSE VISUAL STUDIO DOESN'T SEEM TO RECOGNIZE THIS CHANGE AND REBUILD!
@@ -70,10 +68,12 @@ target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} )
 if(MSVC) # If using the VS compiler...
 
   target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC _CRT_SECURE_NO_WARNINGS)
-  # quitamos la consola si estamos en una build de produccion
+  # remove the console in production build
   if (PRODUCTION_BUILD)
     #YOU CAN REMOVE THE CONSOLE WITH THIS LINE! YOU CAN EVEN DO AN IF PRODUCTION_BUILD TO REMOVE IT ONLY IN PRODUCTION BUILDS
     set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup") #no console
+  elseif(WIN32) # MinGW or other compiler in WINDOWS
+    target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
   endif()
 
 
