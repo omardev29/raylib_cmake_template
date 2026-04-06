@@ -82,8 +82,16 @@ message(STATUS "=== RESOURCES PATH: ${RESOURCES_PATH} ===")
 
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
-
-
+# if you want to see the assembler
+add_custom_target(assembler
+    COMMAND ${CMAKE_CXX_COMPILER} -S -O0
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+        -I${CMAKE_CURRENT_SOURCE_DIR}/include
+        -I${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/raylib-5.5/src
+        -o ${CMAKE_BINARY_DIR}/main.s
+    DEPENDS "${CMAKE_PROJECT_NAME}"
+    COMMENT "Generating assembler output"
+)
 # Link raylib library statically, Here wou would add other libraries!
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
  raylib_static
