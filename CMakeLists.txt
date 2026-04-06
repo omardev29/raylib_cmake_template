@@ -34,7 +34,13 @@ project(ray_test)
 add_subdirectory(thirdparty/raylib-5.5)
 
 # remove compile warnings to raylib
-target_compile_options(raylib PRIVATE -Wno-stringop-overflow)
+if (MSVC)
+  # msvc doesnt have this flag but the error doesnt occur with it
+  target_compile_options(raylib PRIVATE)
+else()
+  target_compile_options(raylib PRIVATE -Wno-stringop-overflow)
+endif()
+
 # MY_SOURCES is defined to be a list of all the source files for my game
 # DON'T ADD THE SOURCES BY HAND, they are already added with this macro
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
