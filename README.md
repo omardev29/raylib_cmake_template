@@ -47,7 +47,7 @@ After you add a file, the changes should be automatically added but if you want 
 # NEW INFO
 # raylib CMake Template
 
-A batteries-included C++20 project template that handles all the boilerplate of linking [raylib](https://www.raylib.es/), [Dear ImGui](https://github.com/ocornut/imgui) (docking branch), and [rlImGui](https://github.com/raylib-extras/rlImGui) statically via CMake. Clone or use the template button, and start writing code immediately.
+A batteries-included C++20 project template that handles all the boilerplate of linking [raylib](https://www.raylib.es/) statically via CMake. Clone or use the template button, and start writing code immediately.
 
 Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmakeSetup).
 
@@ -101,30 +101,20 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 
 This template compiles all three libraries **from source** and links them **statically** into your executable. There are no `.dll` or `.so` files to ship alongside your game — everything ends up in a single binary.
 
-### The CMake chain
-
-```
-your exe (ray_test)
-  ├── raylib_static   ← compiled from thirdparty/raylib-5.5/
-  ├── imgui           ← compiled from thirdparty/imgui-docking/
-  └── rlimgui         ← compiled from thirdparty/rlImGui/
-```
-
 Each library is pulled in as a **CMake subdirectory**:
 
 ```cmake
 add_subdirectory(thirdparty/raylib-5.5)
-add_subdirectory(thirdparty/imgui-docking)
-add_subdirectory(thirdparty/rlImGui)
+# others libraries if add more
 ```
 
-`add_subdirectory` tells CMake to process that folder's own `CMakeLists.txt`, which defines its build targets. After this, those targets (`raylib_static`, `imgui`, `rlimgui`) become available in the parent scope.
+`add_subdirectory` tells CMake to process that folder's own `CMakeLists.txt`, which defines its build targets. After this, those targets (`raylib_static`) become available in the parent scope.
 
 Then they're linked into your executable with:
 
 ```cmake
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
-    raylib_static imgui rlimgui
+    raylib_static other_library another_one
 )
 ```
 
@@ -148,7 +138,7 @@ Your own headers in `include/` are exposed via:
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 ```
 
-The third-party headers (raylib.h, imgui.h, rlImGui.h) are exposed transitively by each library's own `CMakeLists.txt` when you link against them. This is why you can write `#include "raylib.h"` in your source without manually specifying `-I` paths — CMake handles it.
+The third-party headers  are exposed transitively by each library's own `CMakeLists.txt` when you link against them. This is why you can write `#include "raylib.h"` in your source without manually specifying `-I` paths — CMake handles it.
 
 ### Source file discovery
 
@@ -183,28 +173,15 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 This enables LTO globally, which allows the linker to optimize across translation units. It produces smaller, faster binaries at the cost of longer link times. It's active in all build types. If compile times become a problem during development you can temporarily set it to `FALSE`.
 
-### MSVC-specific flags
-
-When compiling with Visual Studio's compiler (`cl.exe`):
-
-- AVX2 SIMD instructions are enabled (`/arch:AVX2`)
-- The CRT is linked statically (`MultiThreaded` instead of `MultiThreadedDLL`) — this means you don't need to ship the Visual C++ Redistributable
-- In production builds, the console window is hidden (`/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup`)
-
----
-
 ## Dependencies
 
 You need the following installed before building:
 
 | Tool | Required | Notes |
 |---|---|---|
-| CMake | ≥ 3.30 | [cmake.org](https://cmake.org/download/) |
+| CMake | ≥ 3.30 | learn cmake would be good but you dont need it for this template |
 | A C++20 compiler | Yes | MSVC, GCC, or Clang |
-| Ninja | Recommended | Faster builds, required for `compile_commands.json` on Windows |
-| Git | For cloning | Submodules must be initialized |
-
-The three libraries (raylib, imgui, rlImGui) are included directly in `thirdparty/` as part of the repo — no package manager needed.
+| Ninja | Strongly Recommended | Faster builds, required for `compile_commands.json`|
 
 - If you dont't have a compiler installed yet, i recommend installing gcc with a package manager:
 ### Linux (apt)
@@ -232,65 +209,11 @@ The `CMakeSettings.json` uses the `msvc_x64_x64` environment, meaning it compile
 
 To switch to a release build, select the `x86-Release` configuration from the dropdown.
 
-> **Note:** If you change the `PRODUCTION_BUILD` option, delete the `out/` folder before rebuilding. VS doesn't always detect this change and won't rebuild correctly otherwise.
-
-### Windows — Command Line (MinGW/Ninja)
-
-If you have MinGW (`gcc`/`g++`) and Ninja installed:
-
-```powershell
-# Configure
-cmake -B build -S . -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# Build
-cmake --build build
-
-# Or directly with ninja
-ninja -C build
-```
-
-The executable will be at `build/ray_test.exe`.
-
-### Linux
-
-Make sure you have the required system libraries:
-
-```bash
-# Debian/Ubuntu
-sudo apt install libgl1-mesa-dev libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev
-
-# Arch
-sudo pacman -S mesa libx11 libxrandr libxi libxcursor libxinerama
-```
-
-Then build:
-
-```bash
-cmake -B build -S . -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-cmake --build build
-./build/ray_test
-```
-
-### macOS
-
-```bash
-cmake -B build -S . -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-cmake --build build
-./build/ray_test
-```
-
-On macOS, raylib uses the Cocoa/OpenGL backend automatically. No extra system libraries needed beyond Xcode Command Line Tools.
-
 ---
 
-## Production Build
+## Production Build (IMPORTANT)
 
-To make a distributable build:
-
-```bash
-cmake -B build -S . -G Ninja -DPRODUCTION_BUILD=ON
-cmake --build build --config Release
-```
+To make a distributable build make sure you use the the release preset
 
 What changes in a production build:
 
@@ -306,16 +229,7 @@ What changes in a production build:
 
 During development, `RESOURCES_PATH` expands to the absolute path of your `resources/` folder in the source tree. This means you can run the executable from any working directory and asset loading will still work.
 
-In production, it becomes `"./resources/"`, so the folder must be next to the `.exe`. A typical distribution layout:
-
-```
-game/
-├── ray_test.exe
-└── resources/
-    ├── textures/
-    ├── sounds/
-    └── fonts/
-```
+In production, it becomes `"./resources/"`, so the folder must be next to the `.exe`.
 
 Use it in code like this:
 
@@ -330,29 +244,21 @@ Sound     shot = LoadSound(RESOURCES_PATH "sounds/shoot.wav");
 
 ### Visual Studio 2022
 
-No setup needed. Open the folder, VS reads `CMakeSettings.json` and handles everything.
+No setup needed. Open the folder, VS reads `CMakePresets.json` and handles everything.
 
 ### VSCode / VSCodium
 
-Install the **CMake Tools** extension. Open the folder, select a kit (MSVC or GCC) when prompted, and click Build. `compile_commands.json` is generated automatically if you add `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` to the CMake configure args in the extension settings, or add it to `CMakeSettings.json`.
+Install the **CMake Tools** extension. Open the folder, select a kit (MSVC or GCC) when prompted, and click Build. 
 
-For IntelliSense, also install the **clangd** extension and point it at the `build/` folder.
+For IntelliSense, also install the **clangd** extension and point it at the `build/` folder. `compile_commands.json` is generated automatically
 
 ### CLion
 
-CLion detects `CMakeLists.txt` automatically. Set the CMake profile generator to Ninja in Settings → Build → CMake, and CLion will generate `compile_commands.json` and configure clangd on its own.
+CLion detects `CMakePresets.txt` automatically. the cmake its configurate to compile the `compile_commands.json` automatically
 
 ### Neovim (clangd)
 
-clangd requires a `compile_commands.json` to understand your project. Generate it with:
-
-```bash
-cmake -B build -S . -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-```
-
-> **Why Ninja?** The Visual Studio generator (`-G "Visual Studio 17 2022"`) does not support `CMAKE_EXPORT_COMPILE_COMMANDS`. Ninja does.
-
-Then make `compile_commands.json` visible at the project root. Two options:
+you need to create a symlink to the compile_commands.json or copy
 
 **Symlink (recommended — stays up to date automatically):**
 
@@ -378,29 +284,25 @@ cp build\compile_commands.json compile_commands.json
 cp build/compile_commands.json compile_commands.json
 ```
 
-The `.clangd` file at the project root filters out GCC-specific flags that clangd doesn't understand (`-fmodules-ts`, `-fmodule-mapper`, etc.):
+after this it's just
 
-```yaml
-CompileFlags:
-  CompilationDatabase: build
-  Remove:
-    - "-fmodules-ts"
-    - "-fmodule-mapper=*"
-    - "-fdeps-format=*"
-    - "-fno-fat-lto-objects"
-    - "-flto=*"
+**Configure, (make the build folder)**
+```bash
+# just one time
+cmake --preset debug
+cmake --preset release # just to deploy the game
 ```
-
-Without this, clangd would report `unknown argument` errors even though the build itself works fine. These flags are GCC's C++ modules implementation details — clangd has its own and doesn't accept GCC's.
-
-After setup, restart the LSP in Neovim:
-
+**Compile (make the exe)**
+```bash
+cmake --build build
 ```
-:LspRestart
-```
+**See all the presets availables**
 
+
+```bash
+cmake --list-presets
+```
 To rebuild after CMake changes:
-
 ```bash
 cmake --build build
 # if you used a symlink, compile_commands.json updates automatically
@@ -428,7 +330,7 @@ To add another library from source (same pattern as the existing ones):
 
 ```cmake
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
-    raylib_static imgui rlimgui yourlibrary_target_name
+    raylib_static awesome_library xd yourlibrary_target_name
 )
 ```
 
