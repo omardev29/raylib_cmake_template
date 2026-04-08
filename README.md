@@ -20,6 +20,7 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
   - [Neovim (clangd)](#neovim-clangd)
 - [Adding New Source Files](#adding-new-source-files)
 - [Adding New Libraries](#adding-new-libraries)
+- [Export to Web](#export-to-web)
 - [FAQ](#faq)
 
 ---
@@ -270,10 +271,112 @@ The target name depends on what the library's own `CMakeLists.txt` defines — c
 
 ---
 
+## Export to Web
+
+This template supports exporting to Web using [Emscripten](https://emscripten.org/).
+
+### Prerequisites
+
+1. **Install Emscripten SDK:**
+   ```powershell
+   # Clone emsdk
+   git clone https://github.com/emscripten-core/emsdk.git C:\Users\<your_user>\Documents\Emscripten\emsdk
+   
+   # Navigate to the folder
+   cd C:\Users\<your_user>\Documents\Emscripten\emsdk
+   
+   # Install and activate the latest SDK
+   emsdk install latest
+   emsdk activate latest
+   ```
+
+   
+   via PowerShell (run as administrator):
+   ```powershell
+   [System.Environment]::SetEnvironmentVariable('EMSDK', 'C:\Users\<your_user>\Documents\Emscripten\emsdk', 'Machine')
+   ```
+
+3. **Activate emsdk** (once per terminal session):
+   ```powershell
+   C:\Users\<your_user>\Documents\Emscripten\emsdk\emsdk_env.ps1
+   ```
+
+### Building for Web (CLI)
+
+```powershell
+# 1. Configure CMake with the web preset
+cmake --preset web
+
+# 2. Build the project
+cmake --build --preset web
+```
+
+The output files will be in `build/web/`:
+- `ray_test.html` - Main HTML file
+- `ray_test.js` - Emscripten runtime
+- `ray_test.wasm` - WebAssembly binary
+- `ray_test.data` - Packaged resources (textures, audio, etc.)
+
+### Building for Web (Visual Studio 2022)
+
+1. Open the project folder in VS 2022
+2. Select the **web** configuration from the dropdown menu
+3. Build normally (Ctrl + Shift + B)
+
+### Building for Web (VSCode)
+
+you can figure it out 
+
+### Testing the Web Build
+
+Web builds require a local HTTP server (opening the HTML file directly won't work):
+
+```powershell
+# Python
+python -m http.server 8000 --directory build/web
+
+# Emrun
+Emrun build/web/ray_test.html
+
+# Node.js
+npx serve build/web
+```
+
+Then open `http://localhost:8000/ray_test.html` in your browser.
+
+### Memory Configuration
+
+By default, the Web build allocates **67 MB** of memory (`TOTAL_MEMORY=67108864`). If your game needs more memory (for large textures, audio, or data), modify this value in `CMakeLists.txt`:
+
+```cmake
+if(${PLATFORM} STREQUAL "Web")
+    set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
+        SUFFIX ".html"
+        LINK_FLAGS "-s USE_GLFW=3 -s ASYNCIFY -s TOTAL_MEMORY=134217728 --preload-file ${CMAKE_SOURCE_DIR}/resources@/resources/"
+    )
+endif()
+```
+
+Common values:
+| Value | Bytes | Description |
+|-------|-------|-------------|
+| `67108864` | 64 MB | Default, good for small games |
+| `134217728` | 128 MB | Medium games with more assets |
+| `268435456` | 256 MB | Large games with many textures |
+
+Increase only as needed — larger values mean longer load times.
+
+### Deployment
+
+To deploy on a web server, upload all files from `build/web/` to your server:
+- `ray_test.html`
+- `ray_test.js`
+- `ray_test.wasm`
+- `ray_test.data`
+- `ray_test.worker.js` (if generated)
+
 ## FAQ
 
-**Q: The project builds in VS but clangd shows errors in Neovim.**  
-A: You need to generate `compile_commands.json` separately using the Ninja generator. See [Neovim setup](#neovim-clangd).
 
 **Q: I changed `PRODUCTION_BUILD` and the build is wrong.**  
 A: Delete the build folder entirely and reconfigure. CMake caches this value and VS in particular doesn't always detect the change.

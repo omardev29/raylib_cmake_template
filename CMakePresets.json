@@ -28,6 +28,18 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "PRODUCTION_BUILD": "ON"
             }
+        },
+        {
+            "name": "web",
+            "displayName": "Web (Emscripten)",
+            "inherits": "base",
+            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "binaryDir": "${sourceDir}/build/web",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PRODUCTION_BUILD": "ON",
+                "PLATFORM": "Web"
+            }
         }
     ],
     "buildPresets": [
@@ -38,6 +50,10 @@
         {
             "name": "release",
             "configurePreset": "release"
+        },
+        {
+            "name": "web",
+            "configurePreset": "web"
         }
     ]
 }

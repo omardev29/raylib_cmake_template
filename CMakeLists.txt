@@ -111,6 +111,16 @@ else()
     COMMENT "Generating assembler output"
 )
 endif()
+
+
+if(${PLATFORM} STREQUAL "Web")
+    set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
+        SUFFIX ".html"
+        LINK_FLAGS "-s USE_GLFW=3 -s ASYNCIFY -s TOTAL_MEMORY=67108864 --preload-file ${CMAKE_SOURCE_DIR}/resources@/resources/"
+    )
+endif()
+
+
 # Link raylib library statically, Here you would add other libraries!
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
  raylib_static
