@@ -1,50 +1,3 @@
-# RaylibCmakeSetup ORIGINAL README
-
----
-
-## What is it?
-
-I already set up a Raylib project for you! Take it and enjoy! You don't need to know CMake!
-
-![image](https://github.com/meemknight/raylibCmakeSetup/assets/36445656/c50ab777-0cde-4d80-8df6-a0fd483f169d)
-
-
-<p>Opening the Solution:</p> 
-
-<img src="https://raw.githubusercontent.com/meemknight/photos/master/llge1.gif" width="350">
-
-Or
-
-<img src="https://raw.githubusercontent.com/meemknight/photos/master/llge2.gif" width="500">
-
-Running the setup
-
-Go to CMakeLists.txt, <kbd>CTRL + S</kbd> to make sure the solution was built.
-
-Then, from this dropdown select mygame.exe
-
-<img src="https://raw.githubusercontent.com/meemknight/photos/master/llge3.gif" width="200">
-
-<kbd>Ctrl + F5</kbd> to build (<kbd>F5</kbd> oppens the debugger, you usually want to press <kbd>Ctrl + F5</kbd> because it oppens faster like this.
-
-<p>Adding files:<br>
-You should add .cpp in src/ and .h in include/ Whenever you add a new file CMake will ask you if you want to add that thing, say NO every time! I am already adding all of the things automatically!
-If you accidentally say YES, just remove that file from the CMake.lists
-</p>
-
-<p>Refreshing your changes:<br>
-After you add a file, the changes should be automatically added but if you want to be sure, you can refresh changes by saving the CMake file. If you want to make a hard refresh (you might have to do that sometimes) close Visual Studio, delete the out folder, reopen VS, <kbd>CTRL + S</kbd> on CMakeLists.txt</p>
-
-
-# IMPORTANT!
-  To ship the game: 
-  In Cmakelists.txt, set the PRODUCTION_BUILD flag to ON to build a shippable version of your game. This will change the file paths to be relative to your exe (RESOURCES_PATH macro), will remove the console, and also will change the asserts to not allow people to debug them. To make sure the changes take effect I recommend deleting the out folder to make a new clean build!
-
-
-  Also, if you read the CMAKE, even if you don't know CMAKE you should understand what happens with the comments there and you can add libraries and also remove the console from there if you need to! (there is a commented line for that!)
-
-
-# NEW INFO
 # raylib CMake Template
 
 A batteries-included C++20 project template that handles all the boilerplate of linking [raylib](https://www.raylib.es/) statically via CMake. Clone or use the template button, and start writing code immediately.
@@ -59,11 +12,6 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 - [How the Linking Works](#how-the-linking-works)
 - [Dependencies](#dependencies)
 - [Building](#building)
-  - [Windows — Visual Studio 2022](#windows--visual-studio-2022)
-  - [Windows — Command Line (MinGW/Ninja)](#windows--command-line-mingwninja)
-  - [Linux](#linux)
-  - [macOS](#macos)
-- [Production Build](#production-build)
 - [RESOURCES_PATH](#resources_path)
 - [Editor Setup](#editor-setup)
   - [Visual Studio 2022](#visual-studio-2022)
@@ -81,7 +29,7 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 ```
 .
 ├── CMakeLists.txt              # Main build configuration
-├── CMakeSettings.json          # Visual Studio CMake profile (Windows only)
+├── CMakePresets.json           # Cmake profile
 ├── .clangd                     # clangd LSP configuration (Neovim/Helix/etc.)
 ├── include/                    # Your project headers
 ├── src/                        # Your project source files (.cpp)
@@ -89,8 +37,7 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 ├── resources/                  # Game assets (textures, sounds, fonts, etc.)
 └── thirdparty/
     ├── raylib-5.5/             # raylib source
-    ├── imgui-docking/          # Dear ImGui (docking branch) source
-    └── rlImGui/                # rlImGui source
+    # you can add other libraries here
 ```
 
 ---
@@ -129,26 +76,6 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Raylib as static libraries" FORCE)
 ```
 
 This ensures raylib (and the other libs) don't produce `.dll`/`.so` files. The result is a self-contained executable you can copy and run anywhere without redistributing shared libraries.
-
-### Include paths
-
-Your own headers in `include/` are exposed via:
-
-```cmake
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
-```
-
-The third-party headers  are exposed transitively by each library's own `CMakeLists.txt` when you link against them. This is why you can write `#include "raylib.h"` in your source without manually specifying `-I` paths — CMake handles it.
-
-### Source file discovery
-
-All `.cpp` files under `src/` are picked up automatically:
-
-```cmake
-file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-```
-
-`CONFIGURE_DEPENDS` tells CMake to re-scan this glob when you run a build, so adding a new `.cpp` file to `src/` is picked up without manually re-running `cmake`.
 
 ### Compile-time definitions
 
@@ -193,21 +120,19 @@ sudo apt install build-essential
 sudo pacman -S --needed base-devel
 ```
 ### Windows
-- You need to install choco first, and then:
+- You need to install a package manager like choco or scoop first, and then:
 ```bash
-choco install mingw
+scoop install mingw
 ```
 ---
 
 ## Building
 
-### Windows — Visual Studio 2022
+In CMake, change the project name to whatever you want, and that will be your exe.
+<br>
+<img width="1202" height="343" alt="Image" src="https://github.com/user-attachments/assets/86bb1a61-12a6-4845-87a5-d6fce7397aa0" />
 
-Open the folder directly in VS 2022 (File → Open → Folder). VS will detect `CMakeSettings.json` and configure automatically using the `x64-Debug` profile. Press F5 to build and run.
-
-The `CMakeSettings.json` uses the `msvc_x64_x64` environment, meaning it compiles with `cl.exe` via the VS toolchain. Build output goes to `out\build\x64-Debug\`.
-
-To switch to a release build, select the `x86-Release` configuration from the dropdown.
+The template also has an option to view the assembler; once you have a build of your project, run `cmake --build build --target assembler`.
 
 ---
 
@@ -220,8 +145,6 @@ What changes in a production build:
 - `RESOURCES_PATH` becomes `"./resources/"` (relative to the executable) instead of the absolute source path. You must ship the `resources/` folder next to the executable.
 - `PRODUCTION_BUILD` is defined as `1` in your code, so you can `#if PRODUCTION_BUILD` to strip debug features.
 - On MSVC, the console window is hidden.
-
-> **Important:** After toggling `PRODUCTION_BUILD`, delete the build folder and reconfigure. CMake cached values may not reflect the change otherwise.
 
 ---
 
@@ -243,8 +166,17 @@ Sound     shot = LoadSound(RESOURCES_PATH "sounds/shoot.wav");
 ## Editor Setup
 
 ### Visual Studio 2022
+Open the folder directly in VS 2022/2026 (File → Open → Folder). VS will detect `CMakeSettings.json` and configure automatically using the `Debug` profile
+You can change presets here.
+<br>
+<img width="261" height="117" alt="Image" src="https://github.com/user-attachments/assets/d41d4a69-9380-45f6-a453-15cc787143b9" />
+<br>
+And make sure to select ray_test or whatever name you gave your project as an exe
+<br>
+<img width="512" height="223" alt="Image" src="https://github.com/user-attachments/assets/d901630c-ee47-4bca-9eba-561f77b53bbf" />
 
-No setup needed. Open the folder, VS reads `CMakePresets.json` and handles everything.
+if you have a problem with cmake, delete the build folder and recompile
+
 
 ### VSCode / VSCodium
 
@@ -350,7 +282,4 @@ A: Delete the build folder entirely and reconfigure. CMake caches this value and
 A: Yes. The CMake setup is cross-platform. On Linux you need a few system GL/X11 libraries (listed in the [Linux](#linux) section). The `CMakeSettings.json` is VS-specific and ignored on other platforms.
 
 **Q: Do I need to ship any DLLs with the game?**  
-A: No. Everything is linked statically. On Windows with MSVC, even the CRT is static, so no Visual C++ Redistributable is needed.
-
-**Q: What's the `.cache/` folder?**  
-A: That's clangd's local index cache. It's safe to delete and is regenerated automatically. It's already in `.gitignore`.
+A: No. Everything is linked statically. On Windows with MSVC, even the CRT is static, so no Visual C++ Redistributable is needed
