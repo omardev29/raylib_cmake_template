@@ -53,7 +53,7 @@ Each library is pulled in as a **CMake subdirectory**:
 
 ```cmake
 add_subdirectory(thirdparty/raylib-5.5)
-# others libraries if add more
+# others libraries if you add more
 ```
 
 `add_subdirectory` tells CMake to process that folder's own `CMakeLists.txt`, which defines its build targets. After this, those targets (`raylib_static`) become available in the parent scope.
@@ -336,7 +336,7 @@ Web builds require a local HTTP server (opening the HTML file directly won't wor
 python -m http.server 8000 --directory build/web
 
 # Emrun
-Emrun build/web/ray_test.html
+emrun build/web/ray_test.html
 
 # Node.js
 npx serve build/web
