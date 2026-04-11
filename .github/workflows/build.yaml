@@ -126,3 +126,4 @@ jobs:
             web-build/${{ env.PROJECT_NAME }}.html
             web-build/${{ env.PROJECT_NAME }}.js
             web-build/${{ env.PROJECT_NAME }}.wasm
+            web-build/${{ env.PROJECT_NAME }}.data
