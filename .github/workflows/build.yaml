@@ -76,12 +76,12 @@ jobs:
       - name: Configure
         run: cmake --preset release
 
+      - name: Build
+        run: cmake --build --preset release
+
       - name: Zip mac build
         run: |
          zip mac-build.zip build/${{ env.PROJECT_NAME }}
-
-      - name: Build
-        run: cmake --build --preset release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
