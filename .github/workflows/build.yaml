@@ -120,7 +120,7 @@ jobs:
         uses: actions/download-artifact@v6
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             windows-build/${{ env.PROJECT_NAME }}.exe
