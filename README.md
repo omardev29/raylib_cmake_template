@@ -21,6 +21,7 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 - [Adding New Source Files](#adding-new-source-files)
 - [Adding New Libraries](#adding-new-libraries)
 - [Export to Web](#export-to-web)
+- [Cross-Compilation](#cross-compilation)
 - [FAQ](#faq)
 
 ---
@@ -374,6 +375,10 @@ To deploy on a web server, upload all files from `build/web/` to your server:
 - `ray_test.wasm`
 - `ray_test.data`
 - `ray_test.worker.js` (if generated)
+
+## Cross Compilation
+- The template comes with a pre-configured GitHub Actions .yaml, you can access it in the actions tab, The first and most important thing you need to do is change the "PROJECT_NAME" variable at the top of the file, you need to enter the exact name of your project, the one you put in the CMakeList.txt file.
+- After that, you can simply run the workflow, and it will generate binaries for Linux, Mac, Windows, and web. Yes, literally, you can use this and forget about compiling by hand, but I think it's good that you know the commands behind this, so don't overuse it and only use it for deployment. For debugging, use `cmake --build build`, it will only recompile your C++ code and will be much faster
 
 ## FAQ
 
