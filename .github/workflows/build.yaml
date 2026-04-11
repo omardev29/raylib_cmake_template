@@ -107,6 +107,7 @@ jobs:
           build/web/${{ env.PROJECT_NAME }}.html
           build/web/${{ env.PROJECT_NAME }}.js
           build/web/${{ env.PROJECT_NAME }}.wasm
+          build/web/${{ env.PROJECT_NAME }}.data
 
   release:
     needs: [build-windows, build-linux, build-mac, build-web]
