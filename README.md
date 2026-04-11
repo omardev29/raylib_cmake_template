@@ -135,6 +135,14 @@ In CMake, change the project name to whatever you want, and that will be your ex
 
 The template also has an option to view the assembler; once you have a build of your project, run `cmake --build build --target assembler`.
 
+also, in linux make sure you have the x11 libraries and if you use wayland you may need xwayland
+```bash
+# pacman
+sudo pacman -Syu libx11 libxrandr libxi libxcursor libxinerama mesa
+
+# apt
+sudo apt update;sudo apt install libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev
+```
 ---
 
 ## Production Build (IMPORTANT)
