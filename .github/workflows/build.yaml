@@ -138,6 +138,7 @@ jobs:
         with:
           generate_release_notes: true
           files: |
+           windows-build/windows-build.zip
            linux-build/linux-build.zip
            mac-build/mac-build.zip
            web-build/web-build.zip
