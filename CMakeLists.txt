@@ -40,11 +40,18 @@ if (MSVC)
   target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE /OPT:REF /OPT:ICF)
   # msvc doesnt have this flag but the error doesnt occur with it
   target_compile_options(raylib PRIVATE)
+elseif(EMSCRIPTEN)
+  # Emscripten handles dead code elimination differently, no extra flags needed
+  # wasm-ld has its own --gc-sections but it's enabled by default
+elseif(APPLE)
+  # Apple ld64 uses -dead_strip instead of --gc-sections
+  target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,-dead_strip)
+  target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
+  target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections -Wno-stringop-overflow)
 else()
-  # Ensure the linker deletes death code
+  # GNU ld (Linux, MinGW)
   target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,--gc-sections)
   target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
-  # Apply function-sections to raylib so linker can remove unused functions
   target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections -Wno-stringop-overflow)
 endif()
 
@@ -72,7 +79,12 @@ if(PRODUCTION_BUILD)
     set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     message("===INITIALIZING PRODUCTION BUILD WITH MSVC===")
-  else() # MinGW or clang
+  elseif(EMSCRIPTEN)
+    # Emscripten/WebAssembly - skip LTO, use -Oz for size optimization
+    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -Oz)
+    target_compile_options(raylib PRIVATE -Oz)
+    message("===INITIALIZING PRODUCTION BUILD WITH EMSCRIPTEN===")
+  else() # Linux, macOS, MinGW
     if (MINGW)
       target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
     endif()
