@@ -27,6 +27,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Raylib as static libraries" FORCE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile_commands.json" FORCE)
 
 project(ray_test)
+add_executable("${CMAKE_PROJECT_NAME}")
 
 
 
@@ -35,10 +36,16 @@ add_subdirectory(thirdparty/raylib-5.5)
 
 # remove compile warnings to raylib
 if (MSVC)
+  # Ensure the linker deletes death code
+  target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE /OPT:REF /OPT:ICF)
   # msvc doesnt have this flag but the error doesnt occur with it
   target_compile_options(raylib PRIVATE)
 else()
-  target_compile_options(raylib PRIVATE -Wno-stringop-overflow)
+  # Ensure the linker deletes death code
+  target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,--gc-sections)
+  target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
+  # Apply function-sections to raylib so linker can remove unused functions
+  target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections -Wno-stringop-overflow)
 endif()
 
 # MY_SOURCES is defined to be a list of all the source files for my game
@@ -46,7 +53,6 @@ endif()
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 
-add_executable("${CMAKE_PROJECT_NAME}")
 
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 20)
 
@@ -62,14 +68,18 @@ if(PRODUCTION_BUILD)
     set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
             LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE /O2 /GL)
+    target_compile_options(raylib PRIVATE /O2 /GL)
     set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     message("===INITIALIZING PRODUCTION BUILD WITH MSVC===")
   else() # MinGW or clang
     if (MINGW)
       target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
     endif()
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O3)
+    target_compile_options(raylib PRIVATE -O3)
     set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     message("===INITIALIZING PRODUCTION BUILD WITH GCC OR CLANG===")
   endif()
   # There´s no console to quit on Linux/MacOS
