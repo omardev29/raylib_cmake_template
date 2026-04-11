@@ -65,7 +65,9 @@ if(PRODUCTION_BUILD)
     set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     message("===INITIALIZING PRODUCTION BUILD WITH MSVC===")
   else() # MinGW or clang
-    target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
+    if (MINGW)
+      target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
+    endif()
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O3)
     set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     message("===INITIALIZING PRODUCTION BUILD WITH GCC OR CLANG===")
@@ -114,7 +116,7 @@ endif()
 
 
 if(${PLATFORM} STREQUAL "Web")
-    set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
+  set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
         SUFFIX ".html"
         LINK_FLAGS "-s USE_GLFW=3 -s ASYNCIFY -s TOTAL_MEMORY=67108864 --preload-file ${CMAKE_SOURCE_DIR}/resources@/resources/"
     )
