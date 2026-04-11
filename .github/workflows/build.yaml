@@ -18,9 +18,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Ninja
-        uses: seanmiddleditch/gha-setup-ninja@master
-
       - name: Configure
         run: cmake --preset release
 
@@ -92,7 +89,7 @@ jobs:
       run: sudo apt install -y ninja-build
 
     - name: Install Emscripten
-      uses: mymindstorm/setup-emsdk@v14
+      uses: mymindstorm/setup-emsdk@v16
       with:
         version: latest
 
