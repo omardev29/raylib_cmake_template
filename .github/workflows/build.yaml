@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -28,7 +28,7 @@ jobs:
         run: cmake --build --preset release
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: windows-build
           path: build/${{ env.PROJECT_NAME }}.exe
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -55,7 +55,7 @@ jobs:
         run: cmake --build --preset release
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: linux-build
           path: build/${{ env.PROJECT_NAME }}
@@ -64,12 +64,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
-
-      - name: Install Ninja
-        run: brew install ninja
 
       - name: Configure
         run: cmake --preset release
@@ -78,18 +75,49 @@ jobs:
         run: cmake --build --preset release
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: mac-build
           path: build/${{ env.PROJECT_NAME }}
 
+  build-web:
+    runs-on: ubuntu-latest
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Install Ninja
+      run: sudo apt install -y ninja-build
+
+    - name: Install Emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: latest
+
+    - name: Configure
+      run: cmake --preset web
+
+    - name: Build
+      run: cmake --build --preset web
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: web-build
+        path: |
+          build/web/${{ env.PROJECT_NAME }}.html
+          build/web/${{ env.PROJECT_NAME }}.js
+          build/web/${{ env.PROJECT_NAME }}.wasm
+
   release:
-    needs: [build-windows, build-linux, build-mac]
+    needs: [build-windows, build-linux, build-mac, build-web]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -98,3 +126,6 @@ jobs:
             windows-build/${{ env.PROJECT_NAME }}.exe
             linux-build/${{ env.PROJECT_NAME }}
             mac-build/${{ env.PROJECT_NAME }}
+            web-build/${{ env.PROJECT_NAME }}.html
+            web-build/${{ env.PROJECT_NAME }}.js
+            web-build/${{ env.PROJECT_NAME }}.wasm
