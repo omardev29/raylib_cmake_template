@@ -121,7 +121,7 @@ sudo apt install build-essential
 sudo pacman -S --needed base-devel
 ```
 ### Windows
-- You need to install a package manager like choco or scoop first, and then:
+- You can use msvc, but if you don't want to i recommend installing MinGW with a package manager like choco or scoop, install it and then:
 ```bash
 scoop install mingw
 ```
@@ -215,15 +215,7 @@ ln -s build/compile_commands.json compile_commands.json
 
 **Copy (simpler, but manual after CMake changes):**
 
-```powershell
-# Windows
-cp build\compile_commands.json compile_commands.json
-```
-
-```bash
-# Linux / macOS
-cp build/compile_commands.json compile_commands.json
-```
+- just copy build\compile_commands.json to the root folder of the project
 
 after this it's just
 
@@ -238,7 +230,6 @@ cmake --preset release # just to deploy the game
 cmake --build build
 ```
 **See all the presets availables**
-
 
 ```bash
 cmake --list-presets
@@ -285,6 +276,7 @@ This template supports exporting to Web using [Emscripten](https://emscripten.or
 
 ### Prerequisites
 
+
 1. **Install Emscripten SDK:**
    ```powershell
    # Clone emsdk
@@ -297,7 +289,7 @@ This template supports exporting to Web using [Emscripten](https://emscripten.or
    emsdk install latest
    emsdk activate latest
    ```
-
+  - You can install Emscripten using a package manager. If you do this, go to its installation folder, find Emscripten.cmake, and place it in the Cmake presets directory.     It's usually located in a path similar to this: ../Cmake/Modules/Platform/Emscripten.cmake
    
    via PowerShell (run as administrator):
    ```powershell
