@@ -24,11 +24,15 @@ jobs:
       - name: Build
         run: cmake --build --preset release
 
+      - name: Zip windows build
+        run: |
+         Compress-Archive -Path build/${{ env.PROJECT_NAME }}.exe -DestinationPath windows-build.zip
+
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: windows-build
-          path: build/${{ env.PROJECT_NAME }}.exe
+          path: windows-build.zip
 
   build-linux:
     runs-on: ubuntu-latest
@@ -51,11 +55,15 @@ jobs:
       - name: Build
         run: cmake --build --preset release
 
+      - name: Zip linux build
+        run: |
+         zip linux-build.zip build/${{ env.PROJECT_NAME }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: linux-build
-          path: build/${{ env.PROJECT_NAME }}
+          path: linux-build.zip
 
   build-mac:
     runs-on: macos-latest
@@ -68,6 +76,10 @@ jobs:
       - name: Configure
         run: cmake --preset release
 
+      - name: Zip mac build
+        run: |
+         zip mac-build.zip build/${{ env.PROJECT_NAME }}
+
       - name: Build
         run: cmake --build --preset release
 
@@ -75,7 +87,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: mac-build
-          path: build/${{ env.PROJECT_NAME }}
+          path: mac-build.zip
 
   build-web:
     runs-on: ubuntu-latest
@@ -99,15 +111,17 @@ jobs:
     - name: Build
       run: cmake --build --preset web
 
+    - name: Zip web build
+      run: |
+       cd build/web
+       zip -r ../../web-build.zip ${{ env.PROJECT_NAME }}.html ${{ env.PROJECT_NAME }}.js ${{ env.PROJECT_NAME }}.wasm ${{ env.PROJECT_NAME }}.data
+
     - name: Upload artifact
       uses: actions/upload-artifact@v6
       with:
         name: web-build
         path: |
-          build/web/${{ env.PROJECT_NAME }}.html
-          build/web/${{ env.PROJECT_NAME }}.js
-          build/web/${{ env.PROJECT_NAME }}.wasm
-          build/web/${{ env.PROJECT_NAME }}.data
+          web-build.zip
 
   release:
     needs: [build-windows, build-linux, build-mac, build-web]
@@ -122,11 +136,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
           files: |
-            windows-build/${{ env.PROJECT_NAME }}.exe
-            linux-build/${{ env.PROJECT_NAME }}
-            mac-build/${{ env.PROJECT_NAME }}
-            web-build/${{ env.PROJECT_NAME }}.html
-            web-build/${{ env.PROJECT_NAME }}.js
-            web-build/${{ env.PROJECT_NAME }}.wasm
-            web-build/${{ env.PROJECT_NAME }}.data
+           linux-build/linux-build.zip
+           mac-build/mac-build.zip
+           web-build/web-build.zip
