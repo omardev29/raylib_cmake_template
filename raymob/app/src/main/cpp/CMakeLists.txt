@@ -27,6 +27,10 @@ file(GLOB_RECURSE SOURCES
     "${USER_SRC_DIR}/*.cpp"
 )
 
+# Add android_native_app_glue to sources (CRITICAL for Android!)
+include_directories(${ANDROID_NDK}/sources/android/native_app_glue/)
+list(APPEND SOURCES ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
+
 # Create a shared library with game source files
 add_library(${APP_LIB_NAME} SHARED ${SOURCES})
 

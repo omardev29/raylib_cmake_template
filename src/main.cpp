@@ -6,7 +6,7 @@
 int main(void) {
 
 #ifdef __ANDROID__
-  Vibrate(5);
+  Vibrate(2);
 #endif
 
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
