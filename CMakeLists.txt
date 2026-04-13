@@ -10,6 +10,12 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 #basically this will change the RESOURCES_PATH to be the local path
 
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+endif()
+
 option(PRODUCTION_BUILD "Make this a production build" OFF)
 
 if(MSVC)
@@ -20,9 +26,6 @@ endif()
 
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Raylib as static libraries" FORCE)
-
-
-
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile_commands.json" FORCE)
 
