@@ -123,8 +123,48 @@ jobs:
         path: |
           web-build.zip
 
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        working-directory: ./raymob
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Build release APK
+        working-directory: ./raymob
+        run: |
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: android-debug-apk
+          path: raymob/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: android-release-apk
+          path: raymob/app/build/outputs/apk/release/*.apk
+
   release:
-    needs: [build-windows, build-linux, build-mac, build-web]
+    needs: [build-windows, build-linux, build-mac, build-web, build-android]
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     permissions:
@@ -142,3 +182,5 @@ jobs:
            linux-build/linux-build.zip
            mac-build/mac-build.zip
            web-build/web-build.zip
+           android-debug-apk/android-debug-apk/*.apk
+           android-release-apk/android-release-apk/*.apk

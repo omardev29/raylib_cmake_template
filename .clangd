@@ -3,6 +3,10 @@ CompileFlags:
     - build
     - build/android
     - raymob/.cxx/compile_commands
+  Add:
+    - "--target=aarch64-linux-android24"
+    - "--sysroot=C:/Users/omaro/AppData/Local/Android/Sdk/ndk/28.1.13356709/toolchains/llvm/prebuilt/windows-x86_64/sysroot"
+    - "-IC:/Users/omaro/AppData/Local/Android/Sdk/ndk/28.1.13356709/sources/android/native_app_glue"
   Remove:
     - "-fmodules-ts"
     - "-fmodule-mapper=*"

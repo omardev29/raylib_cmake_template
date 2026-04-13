@@ -1,6 +1,8 @@
 #include "raylib.h"
+#include <raymob/raymob.h>
 
 int main(void) {
+  Vibrate(5);
 
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
   InitWindow(800, 450, "raylib [core] example - basic window");
