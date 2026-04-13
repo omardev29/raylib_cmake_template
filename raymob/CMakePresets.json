@@ -1,0 +1,69 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "debug",
+      "hidden": true,
+      "toolchainFile": "${env.ANDROID_NDK}/build/cmake/android.ninja.cmake",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Android",
+        "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+        "CMAKE_C_STANDARD": "99",
+        "CMAKE_CXX_STANDARD": "11",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "ANDROID_NDK": "$env{ANDROID_NDK}"
+      }
+    },
+    {
+      "name": "arm64-debug",
+      "inherits": "debug",
+      "displayName": "Android ARM64 Debug",
+      "cacheVariables": {
+        "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a"
+      }
+    },
+    {
+      "name": "arm64-release",
+      "inherits": "debug",
+      "displayName": "Android ARM64 Release",
+      "cacheVariables": {
+        "CMAKE_ANDROID_ARCH_ABI": "arm64-v8a",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "armv7-debug",
+      "inherits": "debug",
+      "displayName": "Android ARMv7 Debug",
+      "cacheVariables": {
+        "CMAKE_ANDROID_ARCH_ABI": "armeabi-v7a"
+      }
+    },
+    {
+      "name": "armv7-release",
+      "inherits": "debug",
+      "displayName": "Android ARMv7 Release",
+      "cacheVariables": {
+        "CMAKE_ANDROID_ARCH_ABI": "armeabi-v7a",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "x86_64-debug",
+      "inherits": "debug",
+      "displayName": "Android x86_64 Debug",
+      "cacheVariables": {
+        "CMAKE_ANDROID_ARCH_ABI": "x86_64"
+      }
+    },
+    {
+      "name": "x86_64-release",
+      "inherits": "debug",
+      "displayName": "Android x86_64 Release",
+      "cacheVariables": {
+        "CMAKE_ANDROID_ARCH_ABI": "x86_64",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ]
+}

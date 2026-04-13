@@ -26,8 +26,8 @@
 #define RAYMOB_H
 
 #include "android_native_app_glue.h"
-#include "raylib.h"
 #include "jni.h"
+#include "raylib.h"
 
 /* ENUMS */
 

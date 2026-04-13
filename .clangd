@@ -1,8 +1,14 @@
 CompileFlags:
-  CompilationDatabase: build
+  CompilationDatabase:
+    - build
+    - build/android
+    - raymob/.cxx/compile_commands
   Remove:
     - "-fmodules-ts"
     - "-fmodule-mapper=*"
     - "-fdeps-format=*"
     - "-fno-fat-lto-objects"
     - "-flto=*"
+
+If:
+  PathMatch: .*
