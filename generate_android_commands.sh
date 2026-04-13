@@ -26,7 +26,6 @@ cmake -S "$RAYMOB_DIR/app/src/main/cpp" \
     -D GLFW_BUILD_X11=ON \
     -D GLFW_BUILD_WAYLAND=ON \
     -D PROJECT_ROOT="$PROJECT_ROOT" \
-    -D RAYMOB_DIR="$RAYMOB_DIR" \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 echo "compile_commands.json generated at: $BUILD_DIR/compile_commands/compile_commands.json"

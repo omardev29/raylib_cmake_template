@@ -1,8 +1,13 @@
-#include "raylib.h"
-#include <raymob/raymob.h>
+#include <raylib.h>
+#ifdef __ANDROID__
+#include <raymob.h>
+#endif
 
 int main(void) {
+
+#ifdef __ANDROID__
   Vibrate(5);
+#endif
 
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
   InitWindow(800, 450, "raylib [core] example - basic window");

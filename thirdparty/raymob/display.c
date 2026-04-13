@@ -24,6 +24,8 @@
 
 #include "raymob.h"
 
+#ifdef __ANDROID__
+
 void KeepScreenOn(bool keepOn)
 {
     jobject nativeLoaderInst = GetNativeLoaderInstance();
@@ -62,7 +64,7 @@ Orientation GetScreenOrientation()
             jmethodID screenOrientationMethod = (*env)->GetMethodID(env, displayManagerClass, "getOrientation", "()I");
             jint screenOrientation = (*env)->CallIntMethod(env, displayManager, screenOrientationMethod);
 
-            if (result >= 0 && result < 4) { // just sanity checking in case android API changes
+            if (result >= 0 && result < 4) {
                 result = screenOrientation;
             }
         }
@@ -72,3 +74,5 @@ Orientation GetScreenOrientation()
 
     return result;
 }
+
+#endif

@@ -15,7 +15,7 @@ set(USER_SRC_DIR "${USER_ROOT_DIR}/src/")
 set(USER_INCLUDE_DIR "${USER_ROOT_DIR}/include/")
 set(USER_RESOURCES_DIR "${USER_ROOT_DIR}/resources/")
 set(RAYLIB_DIR "${USER_ROOT_DIR}/thirdparty/raylib-5.5")
-set(RAYMOB_DIR "${USER_ROOT_DIR}/include/raymob")
+set(RAYMOB_DIR "${USER_ROOT_DIR}/thirdparty/raymob")
 
 # Include raylib and raymob as subdirectories (using absolute paths)
 add_subdirectory(${RAYLIB_DIR} "${CMAKE_BINARY_DIR}/raylib-5.5")
@@ -26,10 +26,6 @@ file(GLOB_RECURSE SOURCES
     "${USER_SRC_DIR}/*.c" 
     "${USER_SRC_DIR}/*.cpp"
 )
-
-# Add android_native_app_glue
-include_directories(${ANDROID_NDK}/sources/android/native_app_glue/)
-list(APPEND SOURCES ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
 
 # Create a shared library with game source files
 add_library(${APP_LIB_NAME} SHARED ${SOURCES})

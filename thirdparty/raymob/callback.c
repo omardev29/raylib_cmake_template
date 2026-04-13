@@ -1,5 +1,7 @@
 #include "raymob.h"
 
+#ifdef __ANDROID__
+
 static Callback onStart = NULL;
 static Callback onPause = NULL;
 static Callback onResume = NULL;
@@ -58,3 +60,5 @@ void InitCallBacks(){
         DetachCurrentThread();
     }
 }
+
+#endif

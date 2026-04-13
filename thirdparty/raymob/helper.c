@@ -27,6 +27,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#ifdef __ANDROID__
+
 /* Static variables */
 
 static jobject featuresInstance = NULL;
@@ -429,3 +431,5 @@ void RemoveFileInAppStorage(const char *filepath){
     RL_FREE(appStoragePath);
     RL_FREE(path);
 }
+
+#endif

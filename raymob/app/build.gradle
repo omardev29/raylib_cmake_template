@@ -110,8 +110,8 @@ android {
         updateFile("proguard-rules.pro", "com.raylib.raymob", project.properties['app.application_id'])
 
         // Modify the library name in raymob C source
-        updateFile("../../include/raymob/display.c", "com/raylib/raymob", project.properties['app.application_id'].replace(".", "/"))
-        updateFile("../../include/raymob/soft_keyboard.c", "com/raylib/raymob", project.properties['app.application_id'].replace(".", "/"))
+        updateFile("../../thirdparty/raymob/display.c", "com/raylib/raymob", project.properties['app.application_id'].replace(".", "/"))
+        updateFile("../../thirdparty/raymob/soft_keyboard.c", "com/raylib/raymob", project.properties['app.application_id'].replace(".", "/"))
 
     }
 
@@ -130,8 +130,8 @@ android {
         updateFile("proguard-rules.pro", project.properties['app.application_id'], "com.raylib.raymob")
 
         // Restore the library name in raymob C source
-        updateFile("../../include/raymob/display.c", project.properties['app.application_id'].replace(".", "/"), "com/raylib/raymob")
-        updateFile("../../include/raymob/soft_keyboard.c", project.properties['app.application_id'].replace(".", "/"), "com/raylib/raymob")
+        updateFile("../../thirdparty/raymob/display.c", project.properties['app.application_id'].replace(".", "/"), "com/raylib/raymob")
+        updateFile("../../thirdparty/raymob/soft_keyboard.c", project.properties['app.application_id'].replace(".", "/"), "com/raylib/raymob")
 
     }
 

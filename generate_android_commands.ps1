@@ -32,7 +32,6 @@ cmake -S "$RaymobDir\app\src\main\cpp" `
     -D GLFW_BUILD_X11=ON `
     -D GLFW_BUILD_WAYLAND=ON `
     -D PROJECT_ROOT="$ProjectRoot" `
-    -D RAYMOB_DIR="$RaymobDir" `
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 Write-Host "compile_commands.json generated at: $BuildDir\compile_commands\compile_commands.json"

@@ -24,6 +24,8 @@
 
 #include "raymob.h"
 
+#ifdef __ANDROID__
+
 #include <android/sensor.h>
 #include <stdlib.h>
 
@@ -159,3 +161,5 @@ Vector3 GetGyroscopeAxis(void)
 {
     return State.inputs.gyroscopeAxis;
 }
+
+#endif

@@ -36,6 +36,7 @@ add_executable("${CMAKE_PROJECT_NAME}")
 
 #Add raylib, and here you would add other libraries if needed!
 add_subdirectory(thirdparty/raylib-5.5)
+add_subdirectory(thirdparty/raymob)
 
 # remove compile warnings to raylib
 if (MSVC)
@@ -151,4 +152,5 @@ endif()
 # Link raylib library statically, Here you would add other libraries!
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
  raylib_static
+ raymoblib
 )

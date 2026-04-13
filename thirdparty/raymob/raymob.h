@@ -1,7 +1,7 @@
 /*
  *  raymob License (MIT)
  *
- *  Copyright (c) 2023-2024 Le Juez Victor
+ *  Copyright (c) 2023-2024 Le Jefe Victor
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -25,9 +25,13 @@
 #ifndef RAYMOB_H
 #define RAYMOB_H
 
-#include "android_native_app_glue.h"
-#include "jni.h"
-#include "raylib.h"
+#include <raylib.h>
+
+#ifdef __ANDROID__
+    #include "android_native_app_glue.h"
+    #include "jni.h"
+    #include <stdint.h>
+#endif
 
 /* ENUMS */
 
@@ -63,7 +67,9 @@ extern "C" {
  *
  * @return Pointer to the Android application object.
  */
+#ifdef __ANDROID__
 struct android_app *GetAndroidApp(void);
+#endif
 
 
 /* Helper functions */
@@ -73,6 +79,7 @@ struct android_app *GetAndroidApp(void);
  *
  * @return Pointer to the JNIEnv structure.
  */
+#ifdef __ANDROID__
 JNIEnv* AttachCurrentThread(void);
 
 /**
@@ -335,6 +342,7 @@ bool IsFileExistsInAppStorage(const char *filepath);
  * @param filepath Path of the file relative to app specific storage.
  */
 void RemoveFileInAppStorage(const char *filepath);
+#endif
 
 #if defined(__cplusplus)
 }
