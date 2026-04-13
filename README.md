@@ -2,6 +2,8 @@
 
 A batteries-included C++20 project template that handles all the boilerplate of linking [raylib](https://www.raylib.es/) statically via CMake. Clone or use the template button, and start writing code immediately.
 
+It's fine to say that this template modifies raylib slightly to adapt it to the template, but it's mainly CMakeList stuff
+
 Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmakeSetup).
 
 ---
@@ -43,41 +45,6 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 ```
 
 ---
-
-## How the Linking Works
-
-(if you don't care about how the linking works you can just skip all of this and go to - [Building](#building))
-
-This template compiles all three libraries **from source** and links them **statically** into your executable. There are no `.dll` or `.so` files to ship alongside your game — everything ends up in a single binary.
-
-Each library is pulled in as a **CMake subdirectory**:
-
-```cmake
-add_subdirectory(thirdparty/raylib-5.5)
-# others libraries if you add more
-```
-
-`add_subdirectory` tells CMake to process that folder's own `CMakeLists.txt`, which defines its build targets. After this, those targets (`raylib_static`) become available in the parent scope.
-
-Then they're linked into your executable with:
-
-```cmake
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
-    raylib_static other_library another_one
-)
-```
-
-`PRIVATE` means the libraries are linked but their include paths are not propagated to anything that links against your exe — appropriate since this is a final binary, not a library itself.
-
-### Why static linking
-
-`BUILD_SHARED_LIBS` is forced to `OFF`:
-
-```cmake
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Raylib as static libraries" FORCE)
-```
-
-This ensures raylib (and the other libs) don't produce `.dll`/`.so` files. The result is a self-contained executable you can copy and run anywhere without redistributing shared libraries.
 
 ### Compile-time definitions
 
