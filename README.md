@@ -24,6 +24,7 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 - [Adding New Source Files](#adding-new-source-files)
 - [Adding New Libraries](#adding-new-libraries)
 - [Export to Web](#export-to-web)
+- [Android](#Android)
 - [CI/CD](#ci/cd)
 - [FAQ](#faq)
 
