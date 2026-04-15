@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.22.1)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 project("${APP_LIB_NAME}")
 
@@ -13,17 +14,26 @@ project("${APP_LIB_NAME}")
 get_filename_component(USER_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../" ABSOLUTE)
 set(USER_SRC_DIR "${USER_ROOT_DIR}/src/")
 set(USER_INCLUDE_DIR "${USER_ROOT_DIR}/include/")
-set(USER_RESOURCES_DIR "${USER_ROOT_DIR}/resources/")
 set(RAYLIB_DIR "${USER_ROOT_DIR}/thirdparty/raylib-5.5")
 set(RAYMOB_DIR "${USER_ROOT_DIR}/thirdparty/raymob")
+
+# Determine RESOURCES_PATH based on build type (same logic as root CMakeLists.txt)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  set(RESOURCES_PATH "./resources/")
+else()
+  set(RESOURCES_PATH "${USER_ROOT_DIR}/resources/")
+endif()
+
+# Force static linking for raylib on Android
+set(BUILD_SHARED_LIBS_RAYLIB OFF CACHE BOOL "" FORCE)
 
 # Include raylib and raymob as subdirectories (using absolute paths)
 add_subdirectory(${RAYLIB_DIR} "${CMAKE_BINARY_DIR}/raylib-5.5")
 add_subdirectory(${RAYMOB_DIR} "${CMAKE_BINARY_DIR}/raymob")
 
 # Fetch all source files from the user's src/ directory (recursively)
-file(GLOB_RECURSE SOURCES 
-    "${USER_SRC_DIR}/*.c" 
+file(GLOB_RECURSE SOURCES
+    "${USER_SRC_DIR}/*.c"
     "${USER_SRC_DIR}/*.cpp"
 )
 
@@ -35,20 +45,44 @@ list(APPEND SOURCES ${ANDROID_NDK}/sources/android/native_app_glue/android_nativ
 add_library(${APP_LIB_NAME} SHARED ${SOURCES})
 
 # Define compiler macros for the library
-target_compile_definitions(${APP_LIB_NAME} PRIVATE 
+target_compile_definitions(${APP_LIB_NAME} PRIVATE
     PLATFORM_ANDROID
+    RESOURCES_PATH="${RESOURCES_PATH}"
 )
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
-    target_compile_definitions(${APP_LIB_NAME} PRIVATE _DEBUG DEBUG)
+  target_compile_definitions(${APP_LIB_NAME} PRIVATE _DEBUG DEBUG)
 endif()
 
 # Include directories
-target_include_directories(${APP_LIB_NAME} PRIVATE 
+target_include_directories(${APP_LIB_NAME} PRIVATE
     "${USER_INCLUDE_DIR}"
     "${RAYLIB_DIR}/src"
     "${RAYMOB_DIR}"
 )
 
+# Apply optimizations based on build type (same as root CMakeLists.txt)
+if(CMAKE_BUILD_TYPE MATCHES "Release")
+  # LTO for release builds
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
+
+  if(LTO_SUPPORTED)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    message("===INITIALIZING RELEASE BUILD WITH LTO===")
+  else()
+    message(WARNING "LTO not supported: ${LTO_ERROR}")
+  endif()
+
+  # Release optimizations
+  target_compile_options(${APP_LIB_NAME} PRIVATE -O3 -flto)
+  target_compile_options(raylib PRIVATE -O3 -flto)
+else()
+  # Debug optimizations
+  target_compile_options(${APP_LIB_NAME} PRIVATE -O0 -g)
+  target_compile_options(raylib PRIVATE -O0 -g)
+  message("===INITIALIZING DEBUG BUILD===")
+endif()
+
 # Link required libraries to the native application
-target_link_libraries(${APP_LIB_NAME} raylib raymoblib)
+target_link_libraries(${APP_LIB_NAME} PRIVATE raylib_static raymoblib)
