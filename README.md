@@ -346,20 +346,16 @@ Increase only as needed — larger values mean longer load times.
 
   
 #include <raylib.h>
-#include <raymob.h>
+#include <raymob.h> // It will expand to practically nothing if you don't export to mobile
 
 int main() {
 
 #ifdef __ANDROID__
   Vibrate(2);
 #endif
+// rest of the code
 
-
-
-```
-```
-```
-```
+}
 ```
 
 ## CI/CD
