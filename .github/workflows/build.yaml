@@ -138,24 +138,17 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.30.3'
 
-      - name: Build debug APK
-        working-directory: ./raymob
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
-
       - name: Build release APK
         working-directory: ./raymob
         run: |
           ./gradlew assembleRelease --no-daemon
-
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v6
