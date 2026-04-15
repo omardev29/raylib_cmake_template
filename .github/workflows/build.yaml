@@ -148,6 +148,7 @@ jobs:
       - name: Build release APK
         working-directory: ./raymob
         run: |
+          chmod +x ./gradlew
           ./gradlew build
 
       - name: Upload debug APK
