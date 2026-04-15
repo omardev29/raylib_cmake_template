@@ -1,7 +1,12 @@
 #include <raylib.h>
 #include <raymob.h>
+#include <test.h>
 
 int main() {
+
+  const int screen_x{GetScreenWidth()};
+  const int screen_y{GetScreenHeight()};
+  UnloadImage(imagen);
 
 #ifdef __ANDROID__
   Vibrate(2);
@@ -13,13 +18,15 @@ int main() {
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(ALICEBLUE);
-    DrawRectangle(300, 100, 100, 100, GIORNOGOLD);
+
+    DrawTexture(textura, screen_x / 2 - textura.width / 2,
+                screen_y / 2 - textura.height / 2, WHITE);
 
     DrawText("Omar's raylib template!", 190, 200, 20, LIGHTGRAY);
 
     EndDrawing();
   }
-
+  UnloadTexture(textura);
   CloseWindow();
 
   return 0;
