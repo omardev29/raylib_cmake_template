@@ -34,7 +34,6 @@ $ClangdContent = @"
 CompileFlags:
   CompilationDatabase:
     - build
-    - build/android
     - raymob/.cxx/compile_commands
   Add:
     - "--target=aarch64-linux-android24"

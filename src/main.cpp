@@ -1,9 +1,7 @@
 #include <raylib.h>
-#ifdef __ANDROID__
 #include <raymob.h>
-#endif
 
-int main(void) {
+int main() {
 
 #ifdef __ANDROID__
   Vibrate(2);
