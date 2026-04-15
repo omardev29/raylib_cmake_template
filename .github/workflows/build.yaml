@@ -148,7 +148,7 @@ jobs:
       - name: Build release APK
         working-directory: ./raymob
         run: |
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew build
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v6

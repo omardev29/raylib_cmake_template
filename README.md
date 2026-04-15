@@ -16,6 +16,7 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 - [Building](#building)
 - [RESOURCES_PATH](#resources_path)
 - [Editor Setup](#editor-setup)
+  - [Common](#common)
   - [Visual Studio 2022](#visual-studio-2022)
   - [VSCode / VSCodium](#vscode--vscodium)
   - [CLion](#clion)
@@ -154,12 +155,22 @@ And make sure to select ray_test or whatever name you gave your project as an ex
 
 if you have a problem with cmake, delete the build folder and recompile
 
+### COMMON
+- This has to be done in all the editors
+
+- You need to run the generate compile_commands.json.sh in Linux or Mac
+and .ps1 in Windows and the the update_clangd script
+
+- This script will create a compile_commands file with Android support as well, so make sure you have the necessary Android dependencies or modify the script yourself to exclude Android.
+
+- after that use cmake --preset debug to finish
+
 
 ### VSCode / VSCodium
 
 Install the **CMake Tools** extension. Open the folder, select a kit (MSVC or GCC) when prompted, and click Build. 
 
-For IntelliSense, also install the **clangd** extension and point it at the `build/` folder. `compile_commands.json` is generated automatically
+For IntelliSense, also install the **clangd** extension, `compile_commands.json` is generated automatically
 
 ### CLion
 
@@ -167,25 +178,10 @@ CLion detects `CMakePresets.txt` automatically. the cmake its configurate to com
 
 ### Neovim (clangd)
 
-you need to create a symlink to the compile_commands.json or copy
 
-**Symlink (recommended — stays up to date automatically):**
-
-```powershell
-# Windows PowerShell (run as administrator, or enable Developer Mode)
-New-Item -ItemType SymbolicLink -Path compile_commands.json -Target build\compile_commands.json
-```
-
-```bash
 # Linux / macOS
-ln -s build/compile_commands.json compile_commands.json
-```
 
-**Copy (simpler, but manual after CMake changes):**
-
-- just copy build\compile_commands.json to the root folder of the project
-
-after this it's just
+it's just
 
 **Configure, (make the build folder)**
 ```bash
@@ -205,9 +201,6 @@ cmake --list-presets
 To rebuild after CMake changes:
 ```bash
 cmake --build build
-# if you used a symlink, compile_commands.json updates automatically
-# if you copied, re-copy:
-cp build\compile_commands.json compile_commands.json
 ```
 
 ---
@@ -259,15 +252,15 @@ This template supports exporting to Web using [Emscripten](https://emscripten.or
    ```
   - You can install Emscripten using a package manager. If you do this, go to its installation folder, find Emscripten.cmake, and place it in the Cmake presets directory.     It's usually located in a path similar to this: ../Cmake/Modules/Platform/Emscripten.cmake
    
-   via PowerShell (run as administrator):
-   ```powershell
-   [System.Environment]::SetEnvironmentVariable('EMSDK', 'C:\Users\<your_user>\Documents\Emscripten\emsdk', 'Machine')
-   ```
 
 3. **Activate emsdk** (once per terminal session):
    ```powershell
    C:\Users\<your_user>\Documents\Emscripten\emsdk\emsdk_env.ps1
    ```
+
+
+   Windows example
+
 
 ### Building for Web (CLI)
 
@@ -340,11 +333,34 @@ Increase only as needed — larger values mean longer load times.
 
 - open the raymob folder with android studio first it will install any necessary dependencies if they are missing
 
-- if if it does not detect your cmake, in local.properties, put cmake.dir=absolute path to the cmake.exe, and lastly, in app/build.gradle in the line 155, put your cmake version, but for the CI/CD, Leave it with the version it came with before
+- Install cmake 3.30.3 inside android studio (It doesn't matter if you already have it installed on your PC, Android Studio needs its own things.)
 
-- or you can install cmake with android studio to avoid problem
+- make sure you have java 11+ installed (if its posible latest version to avoid problems)
 
-- after that, you can just ./gradlew assembleDebug for APK or ./gradlew bundleRelease for aab
+- after that, you can just ./gradlew build for APK or ./gradlew bundleRelease for aab
+
+
+## raymob.h
+  - this template provides acces to raymob.h, It's a header that allows you to use native Android functions; use it in your code like this.
+  ```cpp
+
+  
+#include <raylib.h>
+#include <raymob.h>
+
+int main() {
+
+#ifdef __ANDROID__
+  Vibrate(2);
+#endif
+
+
+
+```
+```
+```
+```
+```
 
 ## CI/CD
 - The template comes with a pre-configured GitHub Actions .yaml, you can access it in the actions tab, The first and most important thing you need to do is change the "PROJECT_NAME" variable at the top of the file, you need to enter the exact name of your project, the one you put in the CMakeList.txt file.
