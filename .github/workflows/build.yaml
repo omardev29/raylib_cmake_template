@@ -140,6 +140,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.30.3'
+
       - name: Build debug APK
         working-directory: ./raymob
         run: |
@@ -150,6 +155,7 @@ jobs:
         working-directory: ./raymob
         run: |
           ./gradlew assembleRelease --no-daemon
+
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v6
