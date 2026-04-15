@@ -37,11 +37,13 @@ Based on [meemknight/raylibCmakeSetup](https://github.com/meemknight/raylibCmake
 ├── CMakePresets.json           # Cmake profile
 ├── .clangd                     # clangd LSP configuration (Neovim/Helix/etc.)
 ├── include/                    # Your project headers
+├── raymob/                     # This template is integrated with this for exporting to Android
 ├── src/                        # Your project source files (.cpp)
 │   └── main.cpp
 ├── resources/                  # Game assets (textures, sounds, fonts, etc.)
 └── thirdparty/
-    ├── raylib-5.5/             # raylib source
+    ├── raylib-5.5/
+    ├── raymob/                  # raymob functions for android
     # you can add other libraries here
 ```
 
