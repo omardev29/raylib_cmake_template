@@ -4,10 +4,6 @@
 
 int main() {
 
-  const int screen_x{GetScreenWidth()};
-  const int screen_y{GetScreenHeight()};
-  UnloadImage(imagen);
-
 #ifdef __ANDROID__
   Vibrate(2);
 #endif
@@ -15,18 +11,24 @@ int main() {
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
   InitWindow(800, 450, "raylib [core] example - basic window");
 
+  GameAssets assets = LoadGameAssets();
+
   while (!WindowShouldClose()) {
+    int screen_x = GetScreenWidth();
+    int screen_y = GetScreenHeight();
+
     BeginDrawing();
     ClearBackground(ALICEBLUE);
 
-    DrawTexture(textura, screen_x / 2 - textura.width / 2,
-                screen_y / 2 - textura.height / 2, WHITE);
+    DrawTexture(assets.rabbit, screen_x / 2 - assets.rabbit.width / 2,
+                screen_y / 2 - assets.rabbit.height / 2, WHITE);
 
     DrawText("Omar's raylib template!", 190, 200, 20, LIGHTGRAY);
 
     EndDrawing();
   }
-  UnloadTexture(textura);
+  UnloadTexture(assets.rabbit);
+  UnloadImage(assets.img);
   CloseWindow();
 
   return 0;

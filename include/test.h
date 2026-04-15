@@ -1,8 +1,14 @@
 #pragma once
 #include <raylib.h>
-// you would add namespaceder files in this folder
-//
 
-const Image imagen = LoadImage(RESOURCES_PATH "rabbit.png");
+class GameAssets {
+public:
+  Texture2D rabbit;
+  Image img;
+};
 
-const Texture2D textura = LoadTextureFromImage(imagen);
+inline GameAssets LoadGameAssets() {
+  Image img = LoadImage(RESOURCES_PATH "rabbit.png");
+  Texture2D tex = LoadTextureFromImage(img);
+  return {tex, img};
+}
