@@ -1,5 +1,8 @@
 #include <raylib.h>
+#ifdef __ANDROID__
+
 #include <raymob.h>
+#endif // __ANDROID__
 #include <test.h>
 
 int main() {

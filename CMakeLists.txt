@@ -36,8 +36,9 @@ add_executable("${CMAKE_PROJECT_NAME}")
 
 #Add raylib, and here you would add other libraries if needed!
 add_subdirectory(thirdparty/raylib-5.5)
-add_subdirectory(thirdparty/raymob)
-
+if (NOT PRODUCTION_BUILD)
+  add_subdirectory(thirdparty/raymob)
+endif()
 # remove compile warnings to raylib
 if (MSVC)
   # Ensure the linker deletes death code
@@ -120,7 +121,7 @@ target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURC
 # if you want to see the assembler
 if (PRODUCTION_BUILD)
   add_custom_target(assembler
-    COMMAND ${CMAKE_CXX_COMPILER} -S -O3
+    COMMAND ${CMAKE_CXX_COMPILER} -S -O3 -fverbose-asm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
         -I${CMAKE_CURRENT_SOURCE_DIR}/include
         -I${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/raylib-5.5/src
@@ -130,7 +131,7 @@ if (PRODUCTION_BUILD)
 )
 else()
   add_custom_target(assembler
-    COMMAND ${CMAKE_CXX_COMPILER} -S -O0
+    COMMAND ${CMAKE_CXX_COMPILER} -S -O0 -fverbose-asm
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
         -I${CMAKE_CURRENT_SOURCE_DIR}/include
         -I${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/raylib-5.5/src
@@ -150,7 +151,16 @@ endif()
 
 
 # Link raylib library statically, Here you would add other libraries!
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
+if (PRODUCTION_BUILD)
+
+  target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
+ raylib_static
+
+)
+else()
+
+  target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
  raylib_static
  raymoblib
 )
+endif()
