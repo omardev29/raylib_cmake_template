@@ -9,6 +9,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 project("${APP_LIB_NAME}")
 
+option(PRODUCTION_BUILD "Make this a production build" OFF)
 # Define absolute paths to the raylib_cmake_template root directory
 # CMAKE_CURRENT_SOURCE_DIR is raymob/app/src/main/cpp
 get_filename_component(USER_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../" ABSOLUTE)
@@ -44,7 +45,7 @@ target_compile_definitions(${APP_LIB_NAME} PRIVATE
     RESOURCES_PATH="${RESOURCES_PATH}"
 )
 
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
+if(NOT PRODUCTION_BUILD)
   target_compile_definitions(${APP_LIB_NAME} PRIVATE _DEBUG DEBUG)
 endif()
 
@@ -56,7 +57,7 @@ target_include_directories(${APP_LIB_NAME} PRIVATE
 )
 
 # Apply optimizations based on build type (same as root CMakeLists.txt)
-if(CMAKE_BUILD_TYPE MATCHES "Release")
+if(PRODUCTION_BUILD)
   # LTO for release builds
   include(CheckIPOSupported)
   check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
@@ -73,8 +74,8 @@ if(CMAKE_BUILD_TYPE MATCHES "Release")
   target_compile_options(raylib PRIVATE -O3 -flto)
 else()
   # Debug optimizations
-  target_compile_options(${APP_LIB_NAME} PRIVATE -O0 -g)
-  target_compile_options(raylib PRIVATE -O0 -g)
+  target_compile_options(${APP_LIB_NAME} PRIVATE -O0)
+  target_compile_options(raylib PRIVATE -O0)
   message("===INITIALIZING DEBUG BUILD===")
 endif()
 
