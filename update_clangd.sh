@@ -39,8 +39,8 @@ CompileFlags:
     - raymob/.cxx/compile_commands
   Add:
     - "--target=aarch64-linux-android24"
-    - "--sysroot=$SYSROOT"
-    - "-I$NATIVE_APP_GLUE_PATH"
+    - "--sysroot=$SYSROOT" #gitignore
+    - "-I$NATIVE_APP_GLUE_PATH" #gitignore
   Remove:
     - "-fmodules-ts"
     - "-fmodule-mapper=*"

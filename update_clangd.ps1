@@ -37,8 +37,8 @@ CompileFlags:
     - raymob/.cxx/compile_commands
   Add:
     - "--target=aarch64-linux-android24"
-    - "--sysroot=$($Sysroot -replace '\\', '/')"
-    - "-I$($NativeAppGluePath -replace '\\', '/')"
+    - "--sysroot=$($Sysroot -replace '\\', '/')" #gitignore
+    - "-I$($NativeAppGluePath -replace '\\', '/')" #gitignore
   Remove:
     - "-fmodules-ts"
     - "-fmodule-mapper=*"
