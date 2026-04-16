@@ -17,13 +17,7 @@ set(USER_INCLUDE_DIR "${USER_ROOT_DIR}/include/")
 set(RAYLIB_DIR "${USER_ROOT_DIR}/thirdparty/raylib-5.5")
 set(RAYMOB_DIR "${USER_ROOT_DIR}/thirdparty/raymob")
 
-# Determine RESOURCES_PATH based on build type (same logic as root CMakeLists.txt)
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-  set(RESOURCES_PATH "./resources/")
-else()
-  set(RESOURCES_PATH "${USER_ROOT_DIR}/resources/")
-endif()
-
+set(RESOURCES_PATH "${USER_ROOT_DIR}/resources/")
 # Force static linking for raylib on Android
 set(BUILD_SHARED_LIBS_RAYLIB OFF CACHE BOOL "" FORCE)
 
