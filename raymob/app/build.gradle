@@ -89,8 +89,36 @@ android {
 
     }
 
-    // Execute the preBuild task before the compilation
+// Execute the preBuild task before the compilation
     preBuild.doLast {
+        // Copy resources from project root to Android assets/ directory
+        def rootDir = new File(project.rootDir.parentFile, "resources")
+        def destDir = new File(project.rootDir, "app/src/main/assets")
+
+        println "=== Copying resources to assets ==="
+        println "Source: ${rootDir.absolutePath}"
+        println "Dest: ${destDir.absolutePath}"
+
+        if (rootDir.exists()) {
+            rootDir.eachFileRecurse() { f ->
+                def relPath = f.canonicalPath.replace(rootDir.canonicalPath + File.separator, "")
+                def target = new File(destDir, relPath)
+                if (f.directory) {
+                    target.mkdirs()
+                } else {
+                    target.parentFile.mkdirs()
+                    f.withInputStream { input ->
+                        target.withOutputStream { output ->
+                            output << input
+                        }
+                    }
+                }
+                println "Copied: $relPath"
+            }
+            println "=== Resources copied ==="
+        } else {
+            println "WARNING: resources/ not found"
+        }
 
         // Modify the package name and library name in NativeLoader.java
         updateFile("src/main/java/com/raylib/raymob/NativeLoader.java", "package com.raylib.raymob;", "package " + project.properties['app.application_id'] + ";")
@@ -155,15 +183,13 @@ android {
             version '3.30.3'
         }
     }
-    buildFeatures {
+buildFeatures {
         buildConfig true
         viewBinding true
     }
 }
 
-/*
-
-// Add your project's dependencies here.
+    // Add your project's dependencies here.
 // This section is used to include external libraries or modules that your project relies on.
 // These dependencies will be automatically downloaded and integrated into the build process.
 // To add a new dependency, use the 'implementation' or 'api' keyword followed by the library's coordinate or name.
@@ -171,5 +197,3 @@ android {
 dependencies {
 
 }
-
-*/

@@ -17,8 +17,10 @@ set(USER_SRC_DIR "${USER_ROOT_DIR}/src/")
 set(USER_INCLUDE_DIR "${USER_ROOT_DIR}/include/")
 set(RAYLIB_DIR "${USER_ROOT_DIR}/thirdparty/raylib-5.5")
 set(RAYMOB_DIR "${USER_ROOT_DIR}/thirdparty/raymob")
+# should be in assets/
+# Note: Resources are now copied by Gradle preBuild task (before CMake runs)
+set(RESOURCES_PATH "")
 
-set(RESOURCES_PATH "${USER_ROOT_DIR}/resources/")
 # Force static linking for raylib on Android
 set(BUILD_SHARED_LIBS_RAYLIB OFF CACHE BOOL "" FORCE)
 
