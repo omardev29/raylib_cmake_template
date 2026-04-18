@@ -119,28 +119,64 @@ message(STATUS "=== RESOURCES PATH: ${RESOURCES_PATH} ===")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 
 # if you want to see the assembler
-if (PRODUCTION_BUILD)
-  add_custom_target(assembler
-    COMMAND ${CMAKE_CXX_COMPILER} -S -O3 -fverbose-asm
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-        -I${CMAKE_CURRENT_SOURCE_DIR}/include
-        -I${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/raylib-5.5/src
-        -o ${CMAKE_BINARY_DIR}/main.s
-    DEPENDS "${CMAKE_PROJECT_NAME}"
-    COMMENT "Generating assembler output"
-)
+# This target generates .s (assembler) files for all sources in the project
+# Compatible with GCC/Clang/MinGW and MSVC
+
+# Determine optimization flag based on build type
+if(PRODUCTION_BUILD)
+  set(ASM_OPT_FLAGS "-O3")
 else()
-  add_custom_target(assembler
-    COMMAND ${CMAKE_CXX_COMPILER} -S -O0 -fverbose-asm
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-        -I${CMAKE_CURRENT_SOURCE_DIR}/include
-        -I${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/raylib-5.5/src
-        -o ${CMAKE_BINARY_DIR}/main.s
-    DEPENDS "${CMAKE_PROJECT_NAME}"
-    COMMENT "Generating assembler output"
-)
+  set(ASM_OPT_FLAGS "-O0")
 endif()
 
+# Create defines based on build type (same as the main target)
+if(PRODUCTION_BUILD)
+  set(ASM_PROD_BUILD "1")
+  set(ASM_RESOURCES_PATH "../resources/")
+else()
+  set(ASM_PROD_BUILD "0")
+  set(ASM_RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
+endif()
+
+# Build include paths as a single string
+set(ASM_INCLUDES_STR "")
+foreach(inc "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/raylib-5.5/src" "${CMAKE_CURRENT_BINARY_DIR}/thirdparty/raylib-5.5/include")
+  set(ASM_INCLUDES_STR "${ASM_INCLUDES_STR} -I${inc}")
+endforeach()
+
+# Create a header file that defines RESOURCES_PATH as a string literal (with quotes included)
+# This allows proper string concatenation in C preprocessor
+file(WRITE ${CMAKE_BINARY_DIR}/asm_defines.h "#pragma once
+#define RESOURCES_PATH \"../resources/\"
+")
+
+# Create a wrapper script that generates assembler using the defines header
+file(WRITE ${CMAKE_BINARY_DIR}/generate_asm.bat"
+@echo off
+cd /D ${CMAKE_CURRENT_SOURCE_DIR}
+\"${CMAKE_CXX_COMPILER}\" -S -fverbose-asm ${ASM_OPT_FLAGS}${ASM_INCLUDES_STR} -DPRODUCTION_BUILD=${ASM_PROD_BUILD} -include ${CMAKE_BINARY_DIR}/asm_defines.h %* -o ${CMAKE_BINARY_DIR}/main.s
+")
+
+# Add assembler target
+# Generates .s files for each source in the project
+if(MSVC)
+  # MSVC: generate .asm files
+  add_custom_target(assembler
+    COMMAND cmd /C ${CMAKE_BINARY_DIR}/generate_asm.bat ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    DEPENDS ${CMAKE_PROJECT_NAME}
+    COMMENT "Generating assembler files"
+    VERBATIM
+  )
+else()
+  # GCC/Clang/MinGW: generate .s files
+  # Use wrapper script to set RESOURCES_PATH in environment before compilation
+  add_custom_target(assembler
+    COMMAND cmd /C ${CMAKE_BINARY_DIR}/generate_asm.bat ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    DEPENDS ${CMAKE_PROJECT_NAME}
+    COMMENT "Generating assembler files"
+    VERBATIM
+  )
+endif()
 
 if(${PLATFORM} STREQUAL "Web")
   set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
