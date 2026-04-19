@@ -64,6 +64,8 @@ endif()
 # DON'T ADD THE SOURCES BY HAND, they are already added with this macro
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
+set(RESOURCES_PATH "../resources/")
+target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="./resources/")
 
 
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 20)
@@ -72,8 +74,6 @@ target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} )
 
 if(PRODUCTION_BUILD)
   # setup the ASSETS_PATH macro to be in the root folder of your exe
-  target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="../resources/")
-  set(RESOURCES_PATH "../resources/")
   # remove the option to debug asserts.
   target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=1)
   if(MSVC)
@@ -101,8 +101,6 @@ if(PRODUCTION_BUILD)
   endif()
   # There´s no console to quit on Linux/MacOS
 else()
-  set(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
-  target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources/")
   target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=0)
   if (MSVC)
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE /Od /Zi)
