@@ -15,7 +15,7 @@ option(PRODUCTION_BUILD "Make this a production build" OFF)
 get_filename_component(USER_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../" ABSOLUTE)
 set(USER_SRC_DIR "${USER_ROOT_DIR}/src/")
 set(USER_INCLUDE_DIR "${USER_ROOT_DIR}/include/")
-set(RAYLIB_DIR "${USER_ROOT_DIR}/thirdparty/raylib-5.5")
+set(RAYLIB_DIR "${USER_ROOT_DIR}/thirdparty/raylib")
 set(RAYMOB_DIR "${USER_ROOT_DIR}/thirdparty/raymob")
 # should be in assets/
 # Note: Resources are now copied by Gradle preBuild task (before CMake runs)

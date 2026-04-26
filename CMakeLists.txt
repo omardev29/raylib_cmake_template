@@ -35,7 +35,7 @@ add_executable("${CMAKE_PROJECT_NAME}")
 
 
 #Add raylib, and here you would add other libraries if needed!
-add_subdirectory(thirdparty/raylib-5.5)
+add_subdirectory(thirdparty/raylib)
 if (NOT PRODUCTION_BUILD)
   add_subdirectory(thirdparty/raymob)
 endif()

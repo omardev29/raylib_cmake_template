@@ -9,3 +9,4 @@ compile_commands.json
 /temp_apk
 /raymob/app/src/main/assets/*
 !/raymob/app/src/main/assets/.gitkeep
+/__cmake_systeminformation
