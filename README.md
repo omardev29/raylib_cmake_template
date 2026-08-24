@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-Raylib cmake Template
-=======
 # raylib_cmake_template
 
 A raylib starter that gets out of your way. **raylib, statically linked, a CMake
@@ -11,10 +8,9 @@ There is no framework layer here. You write ordinary raylib:
 
 ```cpp
 #include <raylib.h>
-#include <app_config.h>
 
 int main() {
-    InitWindow(APP_WINDOW_WIDTH, APP_WINDOW_HEIGHT, APP_WINDOW_TITLE);
+    InitWindow(1280, 720, "My raylib game");
     SetTargetFPS(60);
 
     Texture2D rabbit = LoadTexture(RESOURCES_PATH "rabbit.png");
@@ -59,16 +55,14 @@ whole documentation:
 
 ## The config
 
-`raylib.toml` is the only non-code file you edit.
+`raylib.toml` is the only non-code file you edit, and it is deliberately short.
+**Anything you can set with a raylib call is not in there** — the window size
+and its title are arguments to `InitWindow()`, so that is where they live. What
+is left is the handful of things CMake has to know before your code exists.
 
 ```toml
 [project]
 name = "game"          # the binary's name, and the CMake target
-
-[window]
-title  = "My raylib game"
-width  = 1280
-height = 720
 
 [raylib]
 disabled_modules = []  # rshapes | rtextures | rtext | rmodels | raudio
@@ -83,8 +77,6 @@ generated is committed**, so it cannot drift out of sync:
 
 - `[project] name` → the CMake project and the executable. `just run` follows a
   rename on its own.
-- `[window]` → `include/app_config.h`, as `APP_WINDOW_TITLE`, `APP_WINDOW_WIDTH`
-  and `APP_WINDOW_HEIGHT`. Change the title in the TOML, not in your source.
 - `[raylib] disabled_modules` → modules you do not use are compiled out. A game
   with no sound drops `raudio` and its whole audio backend.
 - `[dev]` → your local compiler and linker. **Development builds only**: the
@@ -131,33 +123,31 @@ python3 -m http.server 8000 --directory build/web
 Serve it — do not open the `.html` from the filesystem, the browser will refuse
 to load the `.data` file next to it.
 
-### The one thing the web changes about your code
+### The web changes nothing about your code
 
-A browser cannot be blocked, so `while (!WindowShouldClose())` cannot run there
-as it stands: the page would freeze. `src/main.cpp` shows the shape that works
-everywhere — one `frame()` function, called by your loop on the desktop and by
-the browser on the web:
+That is the point, and it is bought deliberately. `while (!WindowShouldClose())`
+runs in a browser here — there is no `#if` in `src/main.cpp` and there does not
+need to be one in yours.
 
-```cpp
-#if defined(PLATFORM_WEB)
-    emscripten_set_main_loop(frame, 0, 1);
-#else
-    while (!WindowShouldClose()) frame();
-#endif
-```
+It works because the web build links with **`-sASYNCIFY`**. A browser cannot be
+blocked, so the loop has to yield; raylib's `WindowShouldClose()` does that with
+`emscripten_sleep()`, and ASYNCIFY is what makes a sleep inside a normal
+function possible. It instruments every function that could be on the stack when
+that happens — most of them — and you pay in download size (roughly +25 % on the
+`.wasm`, measured) and a little speed, whether or not anything ever suspends.
 
-Emscripten does offer a way to keep the `while` loop — `-s ASYNCIFY` — and this
-template deliberately does not use it. It works by instrumenting every function
-that could be on the stack when the loop suspends, which is most of them, and
-you pay for that in download size and speed whether anything ever suspends or
-not. Handing the loop to the browser costs you an `#if` and nothing else.
+That trade is right for this template and wrong for a bigger one. If you are
+shipping to phones and the download matters, the other road is
+`emscripten_set_main_loop()` plus an `#if` in `main()`, which is what
+[raylib_multiplatform](https://github.com/omardev29/raylib_multiplatform) does.
+Here, staying plain matters more.
 
 ## Layout
 
 ```
 raylib.toml          your configuration — the only non-code file you edit
 src/main.cpp         your game. Every .cpp and .c under src/ is compiled
-include/             your headers, and the generated app_config.h
+include/             your headers
 resources/           your assets
 thirdparty/raylib/   raylib, vendored and built statically
 tools/configure.py   turns the .toml into the CMake inputs and the header
@@ -184,4 +174,3 @@ This one is for when you just want to write raylib.
 
 This template is under the [zlib licence](LICENSE), the same as raylib. See
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for what is vendored.
->>>>>>> 3fec2f4 (Un template de raylib, y solo eso)

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Turn raylib.toml into the CMake inputs and the generated header.
+"""Turn raylib.toml into the CMake inputs.
 
 Runs on every configure, from cmake/configure_hook.cmake, so `cmake --preset
-debug` is the only command you ever type after editing the config. It takes
+debug` is the only command you ever type after editing the config. It writes
+CMake files and nothing else — there is no generated header, because the window
+and its title are arguments to InitWindow() and belong in your code. It takes
 milliseconds and rewrites a file only when its content actually changed, so
 nothing rebuilds for no reason.
 
@@ -33,7 +35,6 @@ class ConfigError(Exception):
 
 DEFAULTS: dict = {
     "project": {"name": "game"},
-    "window": {"title": "My raylib game", "width": 1280, "height": 720},
     "raylib": {"disabled_modules": []},
     "dev": {"compiler": "default", "linker": "auto"},
 }
@@ -78,11 +79,6 @@ def validate(cfg: dict) -> None:
             f"[project] name = {name!r} becomes a filename on three operating "
             "systems. Use letters, digits, '_' and '-' only."
         )
-
-    for key in ("width", "height"):
-        value = cfg["window"][key]
-        if not isinstance(value, int) or value <= 0:
-            raise ConfigError(f"[window] {key} has to be a positive integer, got {value!r}")
 
     unknown = set(cfg["raylib"]["disabled_modules"]) - OPTIONAL_MODULES
     if unknown:
@@ -216,21 +212,6 @@ def gen_dev_toolchain(cfg: dict) -> bool:
     return write(GEN / "dev_toolchain.cmake", "\n".join(lines) + "\n")
 
 
-def gen_app_config(cfg: dict) -> bool:
-    window = cfg["window"]
-    return write(REPO / "include" / "app_config.h", f"""/* {HEADER} */
-#ifndef APP_CONFIG_H
-#define APP_CONFIG_H
-
-#define APP_NAME "{cfg["project"]["name"]}"
-#define APP_WINDOW_TITLE "{window["title"]}"
-#define APP_WINDOW_WIDTH {window["width"]}
-#define APP_WINDOW_HEIGHT {window["height"]}
-
-#endif /* APP_CONFIG_H */
-""")
-
-
 def main(argv: list[str]) -> int:
     try:
         cfg = load_config()
@@ -246,8 +227,7 @@ def main(argv: list[str]) -> int:
         print(f"  ok    {CONFIG.name} is valid")
         return 0
 
-    changed = [gen_project(cfg), gen_raylib_flags(cfg),
-               gen_dev_toolchain(cfg), gen_app_config(cfg)]
+    changed = [gen_project(cfg), gen_raylib_flags(cfg), gen_dev_toolchain(cfg)]
     if any(changed):
         print(f"configuration regenerated from {CONFIG.name}")
     return 0
