@@ -2,15 +2,6 @@
 #
 # Local development only. The release and web presets never include this.
 
-find_program(_TPL_CC  clang)
-find_program(_TPL_CXX clang++)
-if(_TPL_CC AND _TPL_CXX)
-  set(CMAKE_C_COMPILER   "${_TPL_CC}"  CACHE FILEPATH "" FORCE)
-  set(CMAKE_CXX_COMPILER "${_TPL_CXX}" CACHE FILEPATH "" FORCE)
-else()
-  message(STATUS "[dev] compiler = clang requested but not found; using the system default")
-endif()
-
 # A faster linker is the single biggest win on an incremental debug build.
 # CMAKE_LINKER_TYPE needs CMake 3.29+; the project already requires 3.30.
 foreach(_ld mold lld)
