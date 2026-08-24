@@ -1,18 +1,33 @@
 cmake_minimum_required(VERSION 3.30)
 
+<<<<<<< HEAD
 # --- Project configuration --------------------------------------------------
 # raylib_multiplatform.toml is the single source of truth for the project's
 # identity. tools/configure.py turns it into the files below plus the Gradle
 # properties and the XcodeGen spec; none of that is committed, so it cannot
 # drift. This has to run before project(), because the project name comes out
 # of it.
+=======
+# ---------------------------------------------------------------------------
+# raylib_cmake_template
+#
+# raylib, statically linked, with a CMake build and one config file. Three
+# targets, all of them built from this machine: Windows, Linux and the web.
+#
+# raylib.toml is the single source of truth for the project's identity.
+# tools/configure.py turns it into the files under cmake/generated/ and into
+# include/app_config.h; none of that is committed, so it cannot drift. It has
+# to run before project(), because the project name comes out of it.
+# ---------------------------------------------------------------------------
+
+include(cmake/configure_hook.cmake)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/project.cmake")
+>>>>>>> 3fec2f4 (Un template de raylib, y solo eso)
 
 set(CMAKE_CXX_STANDARD 20)
-
-# i bet you don't want modules here, but if you want, turn this on
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-
-#basically this will change the RESOURCES_PATH to be the local path
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build raylib as a static library" FORCE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile_commands.json" FORCE)
 
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -20,127 +35,144 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
 endif()
 
-option(PRODUCTION_BUILD "Make this a production build" OFF)
+option(PRODUCTION_BUILD "Optimised build that reads resources/ next to the executable" OFF)
 
+<<<<<<< HEAD
 # [dev] compiler/linker from the config. Deliberately only for development
 # builds: CI builds `release`/`web`, so nothing here can change what ships.
 # Must precede project(), which is where CMake locks in the compiler.
+=======
+# [dev] compiler and linker, and only for development builds: the release and
+# web presets are unaffected by anything in that section. Must precede
+# project(), which is where CMake locks the compiler in.
+if(NOT PRODUCTION_BUILD)
+  include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/dev_toolchain.cmake" OPTIONAL)
+endif()
+>>>>>>> 3fec2f4 (Un template de raylib, y solo eso)
 
 if(MSVC)
-  # Static CRT in every configuration (/MT for Release, /MTd for Debug)
+  # Static CRT in every configuration, so the .exe runs on a machine without
+  # the Visual C++ redistributable.
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-  add_compile_options(/arch:AVX2) #make sure SIMD optimizations take place
 endif()
 
+<<<<<<< HEAD
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Raylib as static libraries" FORCE)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile_commands.json" FORCE)
 
 project(ray_test)
+=======
+project(${TEMPLATE_PROJECT_NAME} LANGUAGES C CXX)
+>>>>>>> 3fec2f4 (Un template de raylib, y solo eso)
 add_executable("${CMAKE_PROJECT_NAME}")
 
+# --- raylib -----------------------------------------------------------------
 
-
-#Add raylib, and here you would add other libraries if needed!
 add_subdirectory(thirdparty/raylib)
+<<<<<<< HEAD
+=======
+
+# [raylib] disabled_modules. raylib's own SUPPORT_* options are not used: they
+# only take effect with CUSTOMIZE_BUILD=ON, and that flips roughly fifteen
+# flags that are 0 in config.h to ON, because raylib's ParseConfigHeader.cmake
+# maps any uncommented #define to ON without reading its value. The complete
+# set through EXTERNAL_CONFIG_FLAGS is the only way to get what was asked for.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/raylib_flags.cmake")
+>>>>>>> 3fec2f4 (Un template de raylib, y solo eso)
 target_compile_definitions(raylib PRIVATE ${RAYLIB_CONFIG_DEFS})
-if (NOT PRODUCTION_BUILD)
-  add_subdirectory(thirdparty/raymob)
-endif()
-# remove compile warnings to raylib
-if (MSVC)
-  # Ensure the linker deletes death code
+
+# Disabling a module only makes the binary smaller if the linker can actually
+# drop what nobody calls. Without these two, the code is compiled out of raylib
+# but its dependencies are still dragged in, and `disabled_modules` saves
+# nothing.
+if(MSVC)
   target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE /OPT:REF /OPT:ICF)
-  # msvc doesnt have this flag but the error doesnt occur with it
-  target_compile_options(raylib PRIVATE)
 elseif(EMSCRIPTEN)
-  # Emscripten handles dead code elimination differently, no extra flags needed
-  # wasm-ld has its own --gc-sections but it's enabled by default
-elseif(APPLE)
-  # Apple ld64 uses -dead_strip instead of --gc-sections
-  target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,-dead_strip)
-  target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
-  target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections -Wno-stringop-overflow)
+  # wasm-ld garbage-collects sections by default.
 else()
-  # GNU ld (Linux, MinGW)
-  target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,--gc-sections)
   target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
   target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections -Wno-stringop-overflow)
+  if(APPLE)
+    target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,-dead_strip)
+  else()
+    target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,--gc-sections)
+  endif()
 endif()
 
-# MY_SOURCES is defined to be a list of all the source files for my game
-# DON'T ADD THE SOURCES BY HAND, they are already added with this macro
+# --- your code --------------------------------------------------------------
+
+# Every .cpp and .c under src/ is compiled. Adding a file needs no CMake edit;
+# CONFIGURE_DEPENDS makes the build notice a new one on its own.
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
+target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES})
 
-# RESOURCES_PATH macro used by the game code to locate its assets
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+)
+
+# RESOURCES_PATH is how your code finds resources/. In development it is an
+# absolute path, so the game loads its assets whatever directory you launch it
+# from; in a production build it is relative, and resources/ ships next to the
+# executable.
 if(PRODUCTION_BUILD)
-  # Production: relative to the executable, ship resources/ next to it
   set(RESOURCES_PATH "./resources/")
 else()
-  # Development: absolute path so the game loads its assets no matter
-  # which working directory it is launched from
   set(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 endif()
-target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="${RESOURCES_PATH}")
+target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC
+  RESOURCES_PATH="${RESOURCES_PATH}")
+message(STATUS "=== RESOURCES PATH: ${RESOURCES_PATH} ===")
 
+<<<<<<< HEAD
 
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 20)
 
 target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} ${RAYLIB_STUB_SOURCES})
+=======
+# --- optimisation, per build type -------------------------------------------
+>>>>>>> 3fec2f4 (Un template de raylib, y solo eso)
 
 if(PRODUCTION_BUILD)
-  # setup the ASSETS_PATH macro to be in the root folder of your exe
-  # remove the option to debug asserts.
   target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=1)
   if(MSVC)
+    # /SUBSYSTEM:WINDOWS so a released build does not open a console window
+    # behind the game. mainCRTStartup keeps plain main() as the entry point.
     set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
-            LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+      LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE /O2 /GL)
     target_compile_options(raylib PRIVATE /O2 /GL)
     set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    message("===INITIALIZING PRODUCTION BUILD WITH MSVC===")
   elseif(EMSCRIPTEN)
-    # Emscripten/WebAssembly - skip LTO, use -Oz for size optimization
+    # -Oz, not -O3: on the web what costs the player is the download.
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -Oz)
     target_compile_options(raylib PRIVATE -Oz)
-    message("===INITIALIZING PRODUCTION BUILD WITH EMSCRIPTEN===")
-  else() # Linux, macOS, MinGW
-    if (MINGW)
+  else()
+    if(MINGW)
       target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
     endif()
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O3)
     target_compile_options(raylib PRIVATE -O3)
-    if(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
-      # NetBSD's linker does not process the GCC LTO bytecode stored in static
-      # archives, leaving raylib symbols (TraceLog, LoadImage, ...) undefined at
-      # link time. Skip LTO there; keep it everywhere else.
-      message("===INITIALIZING PRODUCTION BUILD WITH GCC OR CLANG (NetBSD: LTO disabled)===")
-    else()
-      set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-      set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-      message("===INITIALIZING PRODUCTION BUILD WITH GCC OR CLANG===")
-    endif()
+    set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
   endif()
-  # There´s no console to quit on Linux/MacOS
 else()
   target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=0)
-  if (MSVC)
+  if(MSVC)
     target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE /Od /Zi)
-    message("===INITIALIZING DEBUGGING WITH MSVC===")
   else()
-    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O0)
-
-    message("===INITIALIZING DEBUGGING WITH GCC OR CLANG===")
+    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O0 -g)
   endif()
 endif()
 
-message(STATUS "=== RESOURCES PATH: ${RESOURCES_PATH} ===")
+# --- web --------------------------------------------------------------------
 
+<<<<<<< HEAD
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include/"
   "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rres"
@@ -269,31 +301,23 @@ else()
 endif()
 
 if(PLATFORM STREQUAL "Web")
+=======
+if(EMSCRIPTEN)
+>>>>>>> 3fec2f4 (Un template de raylib, y solo eso)
   set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
-        SUFFIX ".html"
-        # No ASYNCIFY, on purpose. It is only needed to run a synchronous while
-        # loop in an asynchronous browser, and include/rmp/
-        # lifecycle.h hands the frame loop to emscripten_set_main_loop instead.
-        # ASYNCIFY is not free: it instruments every function that could be on
-        # the stack at a suspension point, which is most of them, and charges
-        # for it in code size and speed whether or not anything ever suspends.
-        # If you put a while loop back, you have to put this back with it.
-        LINK_FLAGS "-s USE_GLFW=3 -s TOTAL_MEMORY=67108864 --preload-file ${CMAKE_SOURCE_DIR}/resources@/resources/"
-    )
+    SUFFIX ".html"
+    # --preload-file bundles resources/ into a .data file next to the .html, so
+    # RESOURCES_PATH resolves in the browser's virtual filesystem exactly as it
+    # does on disk.
+    #
+    # ASYNCIFY is deliberately NOT here, and that decides how you write your
+    # loop: see src/main.cpp. It is what lets a `while (!WindowShouldClose())`
+    # run in a browser, and it is expensive — it instruments every function
+    # that could be on the stack at a suspension point, which is most of them,
+    # and charges for it in size and speed whether anything suspends or not.
+    LINK_FLAGS "-s USE_GLFW=3 -s TOTAL_MEMORY=67108864 -s ALLOW_MEMORY_GROWTH=1 \
+--preload-file ${CMAKE_SOURCE_DIR}/resources@/resources/"
+  )
 endif()
 
-
-# Link raylib library statically, Here you would add other libraries!
-if (PRODUCTION_BUILD)
-
-  target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
- raylib_static
-
-)
-else()
-
-  target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE
- raylib_static
- raymoblib
-)
-endif()
+target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE raylib)

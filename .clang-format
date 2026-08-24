@@ -1,0 +1,51 @@
+# The house style, written down so your editor stops arguing with the template.
+#
+#   just fmt          format everything under src/ and include/
+#   just fmt check    report without changing anything
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++20
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+ColumnLimit: 90
+
+# No alignment, of any kind. A column of `=` lined up with a ruler looks tidy
+# in the file it was written in and costs something every time after: renaming
+# one field reflows twenty lines, and the diff of a one-line change becomes a
+# paragraph.
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignOperands: DontAlign
+AlignTrailingComments:
+  Kind: Never
+
+# `if (!ok) return;` stays on one line: it reads as a guard, and a guard that
+# occupies three lines stops looking like one.
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+
+# Never re-wrap a comment. File headers carry hand-wrapped paragraphs and the
+# occasional table, and a formatter that reflows them destroys them.
+ReflowComments: Never
+
+# `const char *name`, not `const char* name`. Matches raylib.
+DerivePointerAlignment: false
+PointerAlignment: Right
+
+# `CLITERAL(Color){ 18, 18, 22, 255 }` keeps its inner spaces.
+Cpp11BracedListStyle: false
+IndentCaseLabels: true
+
+# Include order is hand-curated and often load-bearing in a C project.
+SortIncludes: Never
+IncludeBlocks: Preserve
+
+NamespaceIndentation: None
+FixNamespaceComments: true
+InsertNewlineAtEOF: true
+KeepEmptyLinesAtTheStartOfBlocks: false

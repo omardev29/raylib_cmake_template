@@ -1,0 +1,28 @@
+# raylib_cmake_template — your project's configuration.
+#
+# This file and `src/` are your side of the template. The CMake inputs are
+# generated from here on every configure, so they cannot drift out of sync with
+# it, and nothing generated is committed.
+#
+# Delete this file and the build still works, on defaults, with a warning.
+
+[project]
+# Binary name and CMake target. Letters, digits, `_` and `-` only.
+name = "game"
+
+[window]
+title  = "My raylib game"
+width  = 1280
+height = 720
+
+[raylib]
+# Modules you do not use, to shrink the binary. `rcore` and `rlgl` are
+# mandatory and are not listed on purpose.
+#   rshapes | rtextures | rtext | rmodels | raudio
+disabled_modules = []
+
+[dev]
+# Local development only — the `debug` preset. `release` and `web` are
+# unaffected by anything in this section.
+compiler = "default"   # clang | gcc | default
+linker   = "auto"      # auto (mold > lld > system) | mold | lld | default

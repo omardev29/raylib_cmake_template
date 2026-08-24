@@ -1,34 +1,20 @@
-# Third-party licenses
+# Third-party licences
 
-This template vendors several libraries. Each keeps its own license; the files
-below are summaries — the authoritative texts are the `LICENSE` files in each
-directory (linked where present).
+Everything vendored in this repository, and the licence it ships under.
 
-| Component | Location | License |
-|---|---|---|
-| raylib | `thirdparty/raylib/` | zlib/libpng — see `thirdparty/raylib/LICENSE` |
-| raymob | `raymob/`, `thirdparty/raymob/` | MIT — see `raymob/LICENSE`, `thirdparty/raymob/LICENSE` |
-| raylib-iOS (fork of raylib) | `thirdparty/raylib-ios/` (submodule) | zlib/libpng (raylib's) — see `thirdparty/raylib-ios/LICENSE` |
-| ANGLE (prebuilt, bundled by the raylib-iOS fork) | `thirdparty/raylib-ios/deps/ANGLE/` | BSD-3-Clause (Google) — see note below |
-| Clay (UI layout engine behind `rmp::ui`) | `thirdparty/clay/` | zlib/libpng — see `thirdparty/clay/LICENSE.md` |
-| rres | `thirdparty/rres/` | MIT — see `thirdparty/rres/LICENSE` |
-| tiny-AES-c | `thirdparty/rres/external/aes.{h,c}` | Public domain / Unlicense |
-| Monocypher | `thirdparty/rres/external/monocypher.{h,c}` | BSD-2-Clause OR CC0 (dual-licensed) |
-| LZ4 | `thirdparty/rres/external/lz4.{h,c}` | BSD-2-Clause |
-| QOI | `thirdparty/rres/external/qoi.h` | MIT |
-| rres_pack tool + MD5 | `tools/` | MIT (this template's license) |
+## raylib
 
-## Notes
+`thirdparty/raylib/` — <https://github.com/raysan5/raylib>
 
-- **raylib-iOS** is a fork of raylib and is distributed under raylib's
-  zlib/libpng license; the fork inherits that license. It is only used for the
-  iOS target. Credit: https://github.com/ghera/raylib-iOS (based on raylib by
-  Ramon Santamaria, iOS rcore from PR raysan5/raylib#3880 by blueloveTH).
-- **ANGLE** (OpenGL ES → Metal) is copyright The ANGLE Project Authors and
-  licensed under BSD-3-Clause. The raylib-iOS fork ships prebuilt
-  `libEGL.xcframework` / `libGLESv2.xcframework` under
-  `thirdparty/raylib-ios/deps/ANGLE/` but does not include the ANGLE LICENSE
-  file, so the full BSD text is reproduced at `ios/ANGLE-LICENSE.txt` for
-  attribution (upstream: https://github.com/google/angle/blob/main/LICENSE).
-- The **template's own code** (`src/`, `include/`, `tools/`, `cmake/`, `ios/`,
-  build files) is under the root `LICENSE` (MIT).
+zlib/libpng licence. Copyright (c) 2013-2026 Ramon Santamaria (@raysan5).
+The full text is in `thirdparty/raylib/LICENSE`.
+
+raylib bundles its own dependencies, each with a permissive licence of its own:
+GLFW (zlib), miniaudio (public domain / MIT-0), stb_image, stb_image_write,
+stb_truetype, stb_rect_pack, stb_vorbis (public domain / MIT), dr_mp3, dr_wav,
+dr_flac (public domain / MIT-0), qoi (MIT), rprand and rres (zlib). Their
+notices are in `thirdparty/raylib/src/external/`.
+
+## resources/rabbit.png
+
+See `resources/License.txt`.
