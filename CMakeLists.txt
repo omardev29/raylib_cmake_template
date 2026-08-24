@@ -6,8 +6,6 @@ cmake_minimum_required(VERSION 3.30)
 # properties and the XcodeGen spec; none of that is committed, so it cannot
 # drift. This has to run before project(), because the project name comes out
 # of it.
-include(cmake/configure_hook.cmake)
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/project.cmake")
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -27,9 +25,6 @@ option(PRODUCTION_BUILD "Make this a production build" OFF)
 # [dev] compiler/linker from the config. Deliberately only for development
 # builds: CI builds `release`/`web`, so nothing here can change what ships.
 # Must precede project(), which is where CMake locks in the compiler.
-if(NOT PRODUCTION_BUILD)
-  include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/dev_toolchain.cmake" OPTIONAL)
-endif()
 
 if(MSVC)
   # Static CRT in every configuration (/MT for Release, /MTd for Debug)
@@ -42,21 +37,13 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Raylib as static libraries" FORCE)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile_commands.json" FORCE)
 
-project(${TEMPLATE_PROJECT_NAME})
+project(ray_test)
 add_executable("${CMAKE_PROJECT_NAME}")
 
 
 
 #Add raylib, and here you would add other libraries if needed!
 add_subdirectory(thirdparty/raylib)
-
-# [raylib] disabled_modules. raylib's own SUPPORT_* CMake options are not used:
-# they only take effect with CUSTOMIZE_BUILD=ON, and turning that on flips
-# roughly fifteen flags that are 0 in config.h to ON, because
-# cmake/ParseConfigHeader.cmake maps any uncommented #define to ON without
-# reading its value. Supplying the complete set with EXTERNAL_CONFIG_FLAGS is
-# the only way to get what the config actually asked for.
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/raylib_flags.cmake")
 target_compile_definitions(raylib PRIVATE ${RAYLIB_CONFIG_DEFS})
 if (NOT PRODUCTION_BUILD)
   add_subdirectory(thirdparty/raymob)
@@ -103,8 +90,6 @@ target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC RESOURCES_PATH="${RESO
 
 set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 20)
 
-# RAYLIB_STUB_SOURCES is empty unless a module was disabled that rres still
-# references. It lives in cmake/generated/, never in src/, which is the user's.
 target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} ${RAYLIB_STUB_SOURCES})
 
 if(PRODUCTION_BUILD)
@@ -164,39 +149,13 @@ target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/tests"
 )
 
-# --- rres resource packing --------------------------------------------------
-# Password shared by the packer and the runtime loader. Obfuscation only (the
-# password ends up in the binary). Override with -DRRES_PACK_PASSWORD="...".
 if(NOT DEFINED RRES_PACK_PASSWORD)
   set(RRES_PACK_PASSWORD "${TEMPLATE_RRES_PASSWORD}")
 endif()
 target_compile_definitions("${CMAKE_PROJECT_NAME}" PRIVATE RRES_PASSWORD="${RRES_PACK_PASSWORD}")
 
-# Open packing tool (alternative to the paid rrespacker). Standalone C, no raylib.
-add_executable(rres_pack tools/rres_pack.c tools/md5.c)
-target_include_directories(rres_pack PRIVATE tools "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rres")
 
-# Pack every loose resource into resources.rres (AES-encrypted).
-#
-# LIST_DIRECTORIES false is load-bearing. file(GLOB) lists directories by
-# default, and fopen() on a directory succeeds on glibc, so a resources/
-# containing a subfolder used to pack that subfolder as a resource — and drop
-# every file inside it.
 file(GLOB PACK_FILES LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}/resources/*")
-list(FILTER PACK_FILES EXCLUDE REGEX "\\.rres$")
-add_custom_target(pack_resources
-  COMMAND $<TARGET_FILE:rres_pack> "${CMAKE_CURRENT_SOURCE_DIR}/resources/resources.rres" "${RRES_PACK_PASSWORD}" ${PACK_FILES}
-  DEPENDS rres_pack
-  COMMENT "Packing resources into resources.rres (AES)"
-)
-# The pack is flat: names are bare file names and this glob does not recurse.
-# So a file in resources/textures/ is not packed, and the four targets that
-# ship resources.rres *alone* (Linux x64/arm64, Windows x64, macOS) would ship
-# a release without it — working in development, broken only once released.
-#
-# Streamed music is the other one. LoadMusicStream opens the file itself
-# (drwav/drmp3/jar_xm take a path, by design: the point is not to hold the song
-# in memory), so it never reaches the loader hook that serves everything else.
 set(_PACK_SUBDIRS "")
 file(GLOB _RES_ENTRIES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*")
 foreach(_f ${_RES_ENTRIES})
