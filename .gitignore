@@ -1,0 +1,41 @@
+/out
+bin/
+build/
+/.vscode/
+/.vs
+.idea/
+Makefile
+/.cache
+compile_commands.json
+# Generated resource pack (created by `cmake --build build --target pack_resources` or CI)
+/resources/resources.rres
+/temp_apk
+/raymob/app/src/main/assets/*
+!/raymob/app/src/main/assets/.gitkeep
+/__cmake_systeminformation
+
+# --- Generated from raylib_multiplatform.toml by tools/configure.py ---------
+# Never committed on purpose: regenerated on every configure, so it cannot
+# drift out of sync with the config. `cmake --preset debug` produces all of it;
+# Gradle and XcodeGen get an explicit `python3 tools/configure.py` step in CI.
+/cmake/generated/
+/include/rmp/generated/
+/raymob/generated.properties
+/raymob/app/generated/
+/ios/project.yml
+/ios/Assets.xcassets/
+/raymob/app/src/main/res/mipmap-hdpi/
+/raymob/app/src/main/res/mipmap-mdpi/
+/raymob/app/src/main/res/mipmap-xhdpi/
+/raymob/app/src/main/res/mipmap-xxhdpi/
+/raymob/app/src/main/res/mipmap-xxxhdpi/
+/raymob/app/src/main/res/mipmap-anydpi-v26/
+/raymob/app/src/main/res/values/ic_launcher_background.xml
+/raymob/app/src/main/res/.icon-stamp
+/raymob/app/src/main/ic_launcher-playstore.png
+# Written by the canary's triage job and uploaded as an artifact, never committed.
+/.github/canary-report.json
+
+# Python bytecode from tools/ and .github/scripts/
+__pycache__/
+*.py[cod]
