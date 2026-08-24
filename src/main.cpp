@@ -1,14 +1,3 @@
-// Your game. Ordinary raylib, and nothing else.
-//
-// The window, its size and its title are set right here, in code, because that
-// is how raylib works and this template is not in the business of moving your
-// decisions into a config file. The only thing it adds is RESOURCES_PATH, which
-// CMake defines for you and which differs between a development build and a
-// released one — see the README.
-//
-// There is no #if for the web. The `while` loop below runs in a browser too,
-// because the web build links with -sASYNCIFY: see the note in CMakeLists.txt.
-
 #include <raylib.h>
 
 int main() {
@@ -18,13 +7,16 @@ int main() {
 
     Texture2D rabbit = LoadTexture(RESOURCES_PATH "rabbit.png");
 
+    int screen_width{ GetScreenWidth() };
+    int screen_height{ GetScreenHeight() };
+
     while (!WindowShouldClose()) {
         BeginDrawing();
-        ClearBackground(CLITERAL(Color){ 18, 18, 22, 255 });
+        ClearBackground(BLACK);
 
-        DrawTexture(rabbit, GetScreenWidth() / 2 - rabbit.width / 2,
-                    GetScreenHeight() / 2 - rabbit.height / 2, WHITE);
-        DrawFPS(20, 20);
+        DrawTexture(rabbit, (screen_width / 2) - (rabbit.width / 2),
+                    (screen_height / 2) - (rabbit.height / 2), WHITE);
+        DrawFPS(screen_width / 16, screen_height / 16);
 
         EndDrawing();
     }

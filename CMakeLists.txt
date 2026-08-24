@@ -1,19 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
 
-# ---------------------------------------------------------------------------
-# raylib_cmake_template
-#
-# raylib, statically linked, with a CMake build and one short config file.
-# Three targets, all built from this machine: Windows, Linux and the web.
-#
-# raylib.toml holds only what the BUILD has to know before your code exists —
-# the target's name, which raylib modules to compile, your local toolchain.
-# tools/configure.py turns it into the files under cmake/generated/, none of
-# which is committed, so it cannot drift. It runs before project(), because the
-# project name comes out of it. The window and its title are NOT in there: they
-# are arguments to InitWindow(), and that is where they belong.
-# ---------------------------------------------------------------------------
-
 include(cmake/configure_hook.cmake)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/project.cmake")
 
