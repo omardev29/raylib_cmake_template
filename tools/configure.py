@@ -36,6 +36,8 @@ class ConfigError(Exception):
 DEFAULTS: dict = {
     "project": {"name": "game"},
     "raylib": {"disabled_modules": []},
+    "windows": {"backend": "glfw"},
+    "linux": {"backend": "glfw", "wayland": False},
     "dev": {"compiler": "default", "linker": "auto"},
 }
 
@@ -46,7 +48,9 @@ DEFAULTS: dict = {
 # complete set through EXTERNAL_CONFIG_FLAGS is the only way to get what the
 # config actually asked for.
 OPTIONAL_MODULES = {"rshapes", "rtextures", "rtext", "rmodels", "raudio"}
-COMPILERS = {"clang", "gcc", "default"}
+COMPILERS = {"clang", "gcc", "mingw", "msvc", "default"}
+WINDOWS_BACKENDS = {"glfw", "win32", "rgfw"}
+LINUX_BACKENDS = {"glfw", "rgfw"}
 LINKERS = {"auto", "mold", "lld", "default"}
 
 
@@ -87,6 +91,20 @@ def validate(cfg: dict) -> None:
             f"disabled. Pick from {sorted(OPTIONAL_MODULES)} — rcore and rlgl are mandatory."
         )
 
+    if cfg["windows"]["backend"] not in WINDOWS_BACKENDS:
+        raise ConfigError(f"[windows] backend has to be one of {sorted(WINDOWS_BACKENDS)}")
+    if cfg["linux"]["backend"] not in LINUX_BACKENDS:
+        raise ConfigError(f"[linux] backend has to be one of {sorted(LINUX_BACKENDS)}")
+    if not isinstance(cfg["linux"]["wayland"], bool):
+        raise ConfigError("[linux] wayland has to be true or false")
+    # Individually valid, together a contradiction: RGFW's Linux backend is
+    # X11-only, so the build would quietly produce X11 while the config said
+    # Wayland. Better a message here than a surprise later.
+    if cfg["linux"]["backend"] == "rgfw" and cfg["linux"]["wayland"]:
+        raise ConfigError(
+            '[linux] backend = "rgfw" and wayland = true cannot both hold: RGFW on Linux '
+            'is X11-only.\nPick backend = "glfw" for native Wayland, or wayland = false.')
+
     if cfg["dev"]["compiler"] not in COMPILERS:
         raise ConfigError(f"[dev] compiler has to be one of {sorted(COMPILERS)}")
     if cfg["dev"]["linker"] not in LINKERS:
@@ -110,6 +128,9 @@ def gen_project(cfg: dict) -> bool:
     name = cfg["project"]["name"]
     return write(GEN / "project.cmake", f"""# {HEADER}
 set(TEMPLATE_PROJECT_NAME "{cmake_escape(name)}")
+set(TEMPLATE_WINDOWS_BACKEND "{cfg["windows"]["backend"]}")
+set(TEMPLATE_LINUX_BACKEND "{cfg["linux"]["backend"]}")
+set(TEMPLATE_LINUX_WAYLAND {"ON" if cfg["linux"]["wayland"] else "OFF"})
 """)
 
 
@@ -188,14 +209,27 @@ def gen_dev_toolchain(cfg: dict) -> bool:
              "# Development builds only. Included before project(), which is where CMake",
              "# locks the compiler in."]
 
-    if compiler == "clang":
-        lines += ['find_program(_dev_cc  NAMES clang)',
-                  'find_program(_dev_cxx NAMES clang++)']
-    elif compiler == "gcc":
-        lines += ['find_program(_dev_cc  NAMES gcc)',
-                  'find_program(_dev_cxx NAMES g++)']
     if compiler != "default":
-        lines += ['if(_dev_cc AND _dev_cxx)',
+        # Several names per compiler, because which one works depends on how it
+        # was installed. MinGW is almost never plain `gcc` on Windows: MSYS2
+        # ships x86_64-w64-mingw32-gcc, and picking up a stray `gcc` from a
+        # Git-for-Windows shell is how you get a build that asks for X11.
+        names = {
+            "clang": (["clang"], ["clang++"]),
+            "gcc":   (["gcc"], ["g++"]),
+            "mingw": (["x86_64-w64-mingw32-gcc", "gcc"], ["x86_64-w64-mingw32-g++", "g++"]),
+            "msvc":  (["cl"], ["cl"]),
+        }[compiler]
+        if compiler in ("mingw", "msvc"):
+            # A Linux box with the mingw cross-compiler installed would
+            # otherwise find it and quietly start producing .exe files.
+            lines += ['if(NOT WIN32)',
+                      f'  message(FATAL_ERROR "[dev] compiler = {compiler} only makes sense '
+                      'on Windows. Here, use clang, gcc or default.")',
+                      'endif()']
+        lines += [f'find_program(_dev_cc  NAMES {" ".join(names[0])})',
+                  f'find_program(_dev_cxx NAMES {" ".join(names[1])})',
+                  'if(_dev_cc AND _dev_cxx)',
                   '  set(CMAKE_C_COMPILER   "${_dev_cc}"  CACHE FILEPATH "" FORCE)',
                   '  set(CMAKE_CXX_COMPILER "${_dev_cxx}" CACHE FILEPATH "" FORCE)',
                   'endif()']

@@ -17,8 +17,29 @@ name = "game"
 #   rshapes | rtextures | rtext | rmodels | raudio
 disabled_modules = []
 
+[linux]
+# backend  "glfw" (default) or "rgfw". RGFW is smaller and younger, and on Linux
+#          it is X11-ONLY — it cannot be combined with wayland = false.
+# wayland  false builds GLFW against X11, so on a Wayland desktop you run
+#          through XWayland. true builds GLFW's native Wayland backend and needs
+#          libwayland-dev, wayland-protocols and libxkbcommon-dev.
+#          Note: Wayland has no window position, by design. GetWindowPosition()
+#          and SetWindowPosition() do not work there.
+backend = "glfw"
+wayland = false
+
+[windows]
+# "glfw" (default), "win32" (raylib's native Win32 backend, no GLFW at all) or
+# "rgfw". The two alternatives are smaller and younger: gamepads, multi-monitor
+# and the clipboard are thinner. Fine for a simple game, wrong as a default.
+backend = "glfw"
+
 [dev]
 # Local development only — the `debug` preset. `release` and `web` are
 # unaffected by anything in this section.
-compiler = "default"   # clang | gcc | default
+# clang | gcc | mingw | msvc | default
+#
+# mingw looks for x86_64-w64-mingw32-gcc before plain `gcc`, which is what makes
+# it work from MSYS2. Both mingw and msvc refuse to run off Windows.
+compiler = "default"
 linker   = "auto"      # auto (mold > lld > system) | mold | lld | default

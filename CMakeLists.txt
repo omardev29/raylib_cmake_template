@@ -34,6 +34,42 @@ add_executable("${CMAKE_PROJECT_NAME}")
 
 # --- raylib -----------------------------------------------------------------
 
+# Which backend raylib is built against. Everything not named here is raylib's
+# own default: Desktop/GLFW on the desktops, Web under Emscripten.
+if(WIN32 AND TEMPLATE_WINDOWS_BACKEND STREQUAL "win32")
+  # raylib 6.0 ships a native Win32 backend but never added a CMake branch for
+  # it. That branch lives in thirdparty/raylib/cmake/LibraryConfigurations.cmake
+  # as a local patch — see the comment there. GLFW drops out on its own,
+  # because it is only built when PLATFORM matches "Desktop".
+  set(PLATFORM "Win32" CACHE STRING "" FORCE)
+  message(STATUS "=== WINDOWS BACKEND: native Win32, no GLFW ===")
+elseif(WIN32 AND TEMPLATE_WINDOWS_BACKEND STREQUAL "rgfw")
+  set(PLATFORM "RGFW" CACHE STRING "" FORCE)
+  message(STATUS "=== WINDOWS BACKEND: RGFW ===")
+elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND TEMPLATE_LINUX_BACKEND STREQUAL "rgfw")
+  set(PLATFORM "RGFW" CACHE STRING "" FORCE)
+  message(STATUS "=== LINUX BACKEND: RGFW ===")
+endif()
+
+# [linux] wayland. By default GLFW is built against X11, so on a Wayland desktop
+# the game runs through XWayland — an extra hop, and the reason fractional
+# scaling and per-monitor DPI misbehave there. Turning it on builds GLFW's
+# native Wayland backend, which needs libwayland-dev, wayland-protocols and
+# libxkbcommon-dev.
+#
+# One difference you WILL see, and it is Wayland's design: there is no window
+# position. GetWindowPosition() and SetWindowPosition() do not work.
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT PLATFORM STREQUAL "RGFW")
+  if(TEMPLATE_LINUX_WAYLAND)
+    set(GLFW_BUILD_WAYLAND ON  CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_X11     OFF CACHE BOOL "" FORCE)
+    message(STATUS "=== LINUX: native Wayland (no X11, no XWayland) ===")
+  else()
+    set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_X11     ON  CACHE BOOL "" FORCE)
+  endif()
+endif()
+
 add_subdirectory(thirdparty/raylib)
 
 # [raylib] disabled_modules. raylib's own SUPPORT_* options are not used: they

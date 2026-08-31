@@ -1,14 +1,17 @@
+extern "C" int printf(const char *__restrict _format, ...);
 #include <raylib.h>
 
 int main() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(1280, 720, "My raylib game");
-    SetTargetFPS(60);
 
     Texture2D rabbit = LoadTexture(RESOURCES_PATH "rabbit.png");
 
+    int monitor_hz{ GetMonitorRefreshRate(GetCurrentMonitor()) };
     int screen_width{ GetScreenWidth() };
     int screen_height{ GetScreenHeight() };
+
+    printf("\n%i\n", monitor_hz);
 
     while (!WindowShouldClose()) {
         BeginDrawing();
@@ -23,5 +26,4 @@ int main() {
 
     UnloadTexture(rabbit);
     CloseWindow();
-    return 0;
 }
