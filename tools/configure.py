@@ -18,6 +18,7 @@ Needs Python 3.11 or newer, for tomllib.
 
 from __future__ import annotations
 
+import platform
 import re
 import sys
 import tomllib
@@ -109,6 +110,30 @@ def validate(cfg: dict) -> None:
         raise ConfigError(f"[dev] compiler has to be one of {sorted(COMPILERS)}")
     if cfg["dev"]["linker"] not in LINKERS:
         raise ConfigError(f"[dev] linker has to be one of {sorted(LINKERS)}")
+
+    # mold links ELF and nothing else — `mold --help` prints its own list of
+    # targets and there is no PE/COFF or Mach-O in it. On Windows or macOS it
+    # cannot produce the file, and asking for it there used to get as far as the
+    # linker, which failed with a message about `ld` that never said mold.
+    if cfg["dev"]["linker"] == "mold" and not on_elf_platform():
+        raise ConfigError(
+            f'[dev] linker = "mold" cannot work on {platform.system()}: mold links ELF only.\n'
+            'Use "lld", or "auto" to let the build pick whatever actually links here.')
+
+
+def on_windows() -> bool:
+    """Windows, whatever shell you are standing in.
+
+    platform.system() answers "Windows" only for a native Python. Inside MSYS2
+    it answers "MSYS_NT-..." or "MINGW64_NT-...", and under Cygwin
+    "CYGWIN_NT-...". They are all Windows.
+    """
+    return platform.system().startswith(("Windows", "MSYS", "MINGW", "CYGWIN"))
+
+
+def on_elf_platform() -> bool:
+    """Where mold can emit a binary at all: Linux and the BSDs."""
+    return not on_windows() and platform.system() != "Darwin"
 
 
 def write(path: Path, content: str) -> bool:
@@ -223,7 +248,13 @@ def gen_dev_toolchain(cfg: dict) -> bool:
         if compiler in ("mingw", "msvc"):
             # A Linux box with the mingw cross-compiler installed would
             # otherwise find it and quietly start producing .exe files.
-            lines += ['if(NOT WIN32)',
+            #
+            # MSYS and CYGWIN as well as WIN32: in MSYS2's MSYS environment
+            # CMake targets the POSIX layer and sets MSYS and UNIX, not WIN32 —
+            # so this used to fire on a real Windows machine, in the shell that
+            # ships x86_64-w64-mingw32-gcc, to say mingw only makes sense on
+            # Windows.
+            lines += ['if(NOT WIN32 AND NOT MSYS AND NOT CYGWIN)',
                       f'  message(FATAL_ERROR "[dev] compiler = {compiler} only makes sense '
                       'on Windows. Here, use clang, gcc or default.")',
                       'endif()']
@@ -234,16 +265,58 @@ def gen_dev_toolchain(cfg: dict) -> bool:
                   '  set(CMAKE_CXX_COMPILER "${_dev_cxx}" CACHE FILEPATH "" FORCE)',
                   'endif()']
 
-    if linker in ("auto", "mold", "lld"):
-        wanted = ["mold", "lld"] if linker == "auto" else [linker]
-        lines.append(f'foreach(_ld {" ".join(wanted)})')
-        lines += ['  find_program(_dev_ld NAMES ${_ld})',
-                  '  if(_dev_ld)',
-                  '    add_link_options("-fuse-ld=${_ld}")',
-                  '    break()',
-                  '  endif()',
-                  'endforeach()']
-    return write(GEN / "dev_toolchain.cmake", "\n".join(lines) + "\n")
+    changed = write(GEN / "dev_toolchain.cmake", "\n".join(lines) + "\n")
+    return gen_dev_linker(cfg) or changed
+
+
+def gen_dev_linker(cfg: dict) -> bool:
+    """The linker, in its own file, included AFTER project().
+
+    Choosing one means checking that it actually links, and checking means
+    compiling — which needs project() to have run. Splitting the file is what
+    makes that possible.
+    """
+    linker = cfg["dev"]["linker"]
+    lines = [f"# {HEADER}",
+             "# Development builds only. Included after project(), because picking a",
+             "# linker means checking that it links."]
+
+    wanted = {"auto": ["mold", "lld"], "mold": ["mold"], "lld": ["lld"]}.get(linker, [])
+    if not wanted:
+        lines.append('message(STATUS "[dev] linker: the platform default")')
+    else:
+        lines += [
+            "# find_program() says the binary is there. check_linker_flag() says the",
+            "# toolchain can USE it, which is the question that matters: GCC's",
+            "# -fuse-ld=lld wants an `ld.lld` on PATH, not just `lld`, and MSYS2 ships",
+            "# one without the other. Guessing gave a clean configure and then a link",
+            "# error about `ld` that named neither lld nor this setting.",
+            "include(CheckLinkerFlag)",
+            "set(_dev_ld_ok OFF)",
+            f'foreach(_ld {" ".join(wanted)})',
+            "  if(_dev_ld_ok)",
+            "    break()",
+            "  endif()",
+            "  # mold cannot emit PE/COFF or Mach-O, so do not offer it there.",
+            '  if(_ld STREQUAL "mold" AND (WIN32 OR MSYS OR CYGWIN OR APPLE))',
+            "    continue()",
+            "  endif()",
+            "  find_program(_dev_ld_bin_${_ld} ${_ld})",
+            "  if(_dev_ld_bin_${_ld})",
+            '    check_linker_flag(CXX "-fuse-ld=${_ld}" _dev_ld_works_${_ld})',
+            "    if(_dev_ld_works_${_ld})",
+            '      add_link_options("-fuse-ld=${_ld}")',
+            '      message(STATUS "[dev] linker: ${_ld}")',
+            "      set(_dev_ld_ok ON)",
+            "    endif()",
+            "  endif()",
+            "endforeach()",
+            "if(NOT _dev_ld_ok)",
+            '  message(STATUS "[dev] linker: the platform default '
+            '(no faster one usable here)")',
+            "endif()",
+        ]
+    return write(GEN / "dev_linker.cmake", "\n".join(lines) + "\n")
 
 
 def main(argv: list[str]) -> int:

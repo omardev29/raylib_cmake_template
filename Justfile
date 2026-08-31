@@ -83,6 +83,11 @@ lint:
     #!/usr/bin/env bash
     set -euo pipefail
     cmake --preset debug > /dev/null
-    mapfile -t files < <(find src -name '*.cpp' -o -name '*.c' | sort)
+    # Not mapfile: that is bash 4, and macOS ships bash 3.2 and is not going to
+    # stop — it went GPLv3. This has to work on a Mac out of the box.
+    files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(find src -name '*.cpp' -o -name '*.c' | sort)
     clang-tidy -p build --quiet "${files[@]}"
     echo "  ok    no warnings"

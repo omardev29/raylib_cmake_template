@@ -30,6 +30,13 @@ if(MSVC)
 endif()
 
 project(${TEMPLATE_PROJECT_NAME} LANGUAGES C CXX)
+
+# [dev] linker, and it belongs here rather than with the compiler above:
+# choosing a linker means checking that it links, which means compiling, which
+# needs project() to have run.
+if(NOT PRODUCTION_BUILD)
+  include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/dev_linker.cmake" OPTIONAL)
+endif()
 add_executable("${CMAKE_PROJECT_NAME}")
 
 # --- raylib -----------------------------------------------------------------
