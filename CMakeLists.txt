@@ -96,12 +96,27 @@ elseif(EMSCRIPTEN)
   # wasm-ld garbage-collects sections by default.
 else()
   target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
-  target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections -Wno-stringop-overflow)
+  target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections)
   if(APPLE)
     target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,-dead_strip)
   else()
     target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,--gc-sections)
   endif()
+endif()
+
+# raylib is compiled quietly. It builds clean on the compiler its authors use
+# and noisily on the next one along: clang — which is what macOS has, and what
+# MSYS2 often has — does not know GCC's -Wno-stringop-overflow and says so once
+# per translation unit, and stb_vorbis.c has a pointer comparison that is
+# tautological on every 64-bit target. Neither is a bug anyone here can act on,
+# and together they bury the warnings that ARE yours.
+#
+# -Werror= survives this: -w inhibits warnings, not errors, so raylib's own
+# -Werror=pointer-arith still stops the build if it ever fires.
+if(MSVC)
+  target_compile_options(raylib PRIVATE /w)
+else()
+  target_compile_options(raylib PRIVATE -w)
 endif()
 
 # --- your code --------------------------------------------------------------
