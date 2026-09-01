@@ -6,7 +6,14 @@ if(EMSCRIPTEN)
     # When configuring web builds with "emcmake cmake -B build -S .", set PLATFORM to Web by default
     SET(PLATFORM Web CACHE STRING "Platform to build for.")
 endif()
-enum_option(PLATFORM "Desktop;Web;WebRGFW;Android;Raspberry Pi;DRM;SDL;RGFW;Memory" "Platform to build for.")
+# PATCHED: Win32 added. raylib 6.0 ships the backend
+# (platforms/rcore_desktop_win32.c, selected by rcore.c with
+# PLATFORM_DESKTOP_WIN32) and LibraryConfigurations.cmake has a branch for it
+# here -- but upstream left it out of THIS list, and enum_option() FATAL_ERRORs
+# on anything not listed. So [windows] backend = "win32" died at configure with
+# "Unknown value Win32", on a real Windows machine, for an option this template
+# documents. Adding the branch was only half of shipping the backend.
+enum_option(PLATFORM "Desktop;Web;WebRGFW;Win32;Android;Raspberry Pi;DRM;SDL;RGFW;Memory" "Platform to build for.")
 
 enum_option(OPENGL_VERSION "OFF;4.3;3.3;2.1;1.1;ES 2.0;ES 3.0;Software" "Force a specific OpenGL Version?")
 
