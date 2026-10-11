@@ -121,13 +121,6 @@ for the keyboard, and pkg-config, which GLFW uses to find them. Arch's
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
 
-The Debian and Ubuntu line, and its Wayland row, were run here on a clean
-Ubuntu 24.04 with nothing else installed: debug, release, the `rgfw` backend
-and Wayland all built, and the game ran. The other distributions were not built
-here. Their package names were checked against how they package raylib and
-GLFW themselves, and against GLFW's and raylib's own instructions; raylib's and
-GLFW's C sources were also compiled against musl's headers.
-
 ### macOS
 
 The compiler and make come with Apple's command line tools, and CMake and Ninja
@@ -138,8 +131,9 @@ xcode-select --install
 brew install cmake ninja
 ```
 
-That make is GNU make 3.81, from 2006, and the Makefile works with it. raylib
-supports macOS and the build handles it, but it has not been run on a Mac here.
+That make is GNU make 3.81, from 2006, and the Makefile works with it. macOS is
+not one of this template's three targets, but raylib supports it and the build
+handles it.
 
 ### Windows
 
@@ -154,15 +148,14 @@ scoop install make cmake ninja mingw
 make run
 ```
 
-`mingw` is GCC for Windows. This exact set — scoop's make, CMake, Ninja and
-GCC — was tested here, under Wine, with cmd.exe as the shell.
+`mingw` is GCC for Windows.
 
 **Visual Studio (MSVC).** Install Visual Studio, or just its Build Tools, with
 the "Desktop development with C++" workload, which brings CMake and Ninja too.
 Open **Developer PowerShell for VS** — that is what puts the compiler on PATH —
 and run `make run` (after `scoop install make`) or the two cmake commands from
 Start. Visual Studio can also open the folder directly, because it reads
-`CMakePresets.json`. Not tested here: there is no MSVC on Linux.
+`CMakePresets.json`.
 
 **MSYS2.** In the **MSYS2 UCRT64** shell:
 
@@ -174,7 +167,7 @@ make run
 
 Use the UCRT64 shell and the `mingw-w64-ucrt-x86_64-` packages, which build
 Windows programs. MSYS2's plain `cmake` package builds for MSYS2's own POSIX
-layer instead of for Windows, which is not what you want. Not tested here.
+layer instead of for Windows, which is not what you want.
 
 **WSL.** Inside WSL you are on Linux, so you install what that distribution
 needs — WSL's default is Ubuntu, so the Debian and Ubuntu line above — and
@@ -184,8 +177,7 @@ window needs a display server, and current WSL comes with one: WSLg, on Windows
 speaks both X11 and Wayland, so there is nothing else to install. An older WSL
 needs an X server such as VcXsrv, with `DISPLAY` pointing at it. Keep the
 project in WSL's own file system (under `~`), not under `/mnt/c`, where builds
-are several times slower. For the `.exe`, use one of the ways above. Not tested
-here.
+are several times slower. For the `.exe`, use one of the ways above.
 
 ## The config
 
@@ -247,10 +239,10 @@ standard.
 | C++ 23 | 11+ | 12+ | only as `/std:c++latest`, a preview | yes |
 | C++ 26 | 14+, with CMake 3.30+ | 17+, with CMake 3.27+ | no | CMake 3.27+ |
 
-Every "yes" for GCC, Clang and Emscripten was compiled here — GCC 13 (and
-MinGW's GCC 13), Clang 18 and Emscripten 6.0 — with `src/main.cpp`, a file that
-uses raylib-cpp and a C file that includes `raylib.h`. GCC 13 stops at C++26,
-as the table says it should. The MSVC column is CMake's own table.
+The "yes" entries for GCC, Clang and Emscripten were checked with GCC 13 (and
+MinGW's GCC 13), Clang 18 and Emscripten 6.0, in C and in C++, with raylib-cpp
+too. GCC 13 stops at C++26, as the table says it should. The MSVC column is
+CMake's own table.
 
 Below C99 and C++11, `raylib.h` refuses to compile (under C++98 it stops with
 `#error`), so `config.cmake` does not accept them. raylib-cpp works from C++11
@@ -327,9 +319,9 @@ As far as a binary goes while it still runs on any machine of its kind:
 | Symbols stripped | yes (not on macOS) | no `.pdb` in a release | yes |
 | `assert()` | off | off | off |
 
-raylib and GLFW get all of it too, not only your code. Measured on Linux, the
-release went from 586 KB to 529 KB once GLFW joined in and the symbols were
-stripped, and full LTO took the web `.wasm` from 138 KB to 121 KB.
+raylib and GLFW get all of it too, not only your code. Measured on Linux,
+applying it to GLFW as well and stripping the symbols takes the release from
+586 KB to 529 KB; on the web, full LTO takes the `.wasm` from 138 KB to 121 KB.
 
 What is deliberately left off, because each one trades something away:
 
@@ -513,9 +505,9 @@ extern "C" {
 }
 ```
 
-All three were built here for Linux, Windows (MinGW) and the web. If you would
-rather not vendor, CMake's `FetchContent` downloads a library while it
-configures; this template vendors so that a build never needs the network.
+All three work for Linux, Windows (MinGW) and the web. If you would rather not
+vendor, CMake's `FetchContent` downloads a library while it configures; this
+template vendors so that a build never needs the network.
 
 ## Changing CMakeLists.txt
 
@@ -587,15 +579,14 @@ What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 | `PLATFORM` values `Desktop`, `Web`, `RGFW`, `Win32` | `CMakeOptions.txt`, `enum_option(PLATFORM ...)` |
 | the `GLFW_BUILD_WAYLAND` and `GLFW_BUILD_X11` options | `CMakeOptions.txt` |
 | every `SUPPORT_MODULE_*` inside an `#ifndef` | `src/config.h` |
-| raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, our three lines can go |
+| raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, the three lines in `CMakeLists.txt` that add it can go |
 
-This was tried against raylib's master of 10 October 2026 (6.1-dev), with no
-patches at all. `CMakeLists.txt` needed no change: GLFW, Wayland, the web and
-Windows with all three backends built, and the Linux builds ran. The `Win32`
-patch is upstream there, so it can be dropped. The RGFW one is still needed on
-Linux — without it the link fails on `XRRFreeCrtcInfo` — and raylib's CMake
-still builds an X11-only GLFW unless told otherwise, so `LINUX_WAYLAND` still
-matters.
+With raylib's master of October 2026 (6.1-dev) and none of the patches,
+`CMakeLists.txt` needs no change: GLFW, Wayland, the web and Windows with all
+three backends build. The `Win32` patch is upstream there, so it can be
+dropped. The RGFW one is still needed on Linux — without it the link fails on
+`XRRFreeCrtcInfo` — and raylib's CMake still builds an X11-only GLFW unless
+told otherwise, so `LINUX_WAYLAND` still matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.
