@@ -12,6 +12,18 @@
 # The executable's name, and the CMake target's. Letters, digits, _ and -.
 set(GAME_NAME "game")
 
+# The C and C++ standards your code is compiled with — exactly these: if the
+# compiler cannot do one, the build stops and says so. These are CMake's own
+# variables, so a library you add that does not pick its standard gets them
+# too. raylib and GLFW are C99 and keep theirs.
+#   CMAKE_C_STANDARD    99 | 11 | 17 | 23
+#   CMAKE_CXX_STANDARD  11 | 14 | 17 | 20 | 23 | 26
+# Below C99 and C++11 raylib.h itself refuses to compile; raylib-cpp is fine
+# from C++11 too. C++26 needs Clang 17 with CMake 3.27, or GCC 14 with CMake
+# 3.30, and MSVC has none: the README has the full table.
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
+
 # raylib modules you do not use, e.g. set(RAYLIB_DISABLED_MODULES raudio rmodels)
 #   rshapes  rtextures  rtext  rmodels  raudio
 # rcore and rlgl are mandatory and are not listed on purpose; rtext needs

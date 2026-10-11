@@ -14,8 +14,6 @@
 _default:
     @just --list --unsorted
 
-# --- day to day -------------------------------------------------------------
-
 # Configuring again costs a fraction of a second when nothing changed, and it
 # means a change to CMakePresets.json is never missed.
 
@@ -46,33 +44,3 @@ web:
 # Delete every build.
 clean:
     cmake -E rm -rf build
-
-# --- checks -----------------------------------------------------------------
-
-# Format every file you own. `just fmt check` only reports.
-fmt what="write":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    files=$(find src include \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) | sort)
-    [ -n "$files" ] || { echo "  nothing to format"; exit 0; }
-    case "{{ what }}" in
-      write) clang-format -i $files; echo "  formatted $(echo "$files" | wc -l | tr -d ' ') files" ;;
-      check) clang-format --dry-run --Werror $files; echo "  ok    every file is formatted" ;;
-      *) echo "unknown: {{ what }} (write | check)"; exit 1 ;;
-    esac
-
-# clang-tidy needs build/compile_commands.json, so this configures first.
-
-# Run clang-tidy over src/, failing on any warning.
-lint:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cmake --preset debug > /dev/null
-    # Not mapfile: that is bash 4, and macOS ships bash 3.2 and is not going to
-    # stop — it went GPLv3. This has to work on a Mac out of the box.
-    files=()
-    while IFS= read -r f; do
-        files+=("$f")
-    done < <(find src \( -name '*.c' -o -name '*.cpp' \) | sort)
-    clang-tidy -p build --quiet --warnings-as-errors='*' "${files[@]}"
-    echo "  ok    no warnings"

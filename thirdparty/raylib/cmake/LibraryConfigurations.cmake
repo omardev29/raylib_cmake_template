@@ -175,9 +175,10 @@ elseif ("${PLATFORM}" STREQUAL "RGFW")
         find_package(X11 REQUIRED)
         find_package(OpenGL REQUIRED)
 
-        # PATCHED: upstream links only X11 and GL here, but RGFW's X11 backend
-        # calls Xrandr for monitor enumeration and Xcursor/Xi for the pointer.
-        # Without them PLATFORM=RGFW does not link AT ALL on Linux.
+        # PATCHED (raylib_cmake_template): upstream links only X11 and GL here,
+        # but RGFW's X11 backend calls Xrandr for monitor enumeration and
+        # Xcursor/Xi for the pointer, so PLATFORM=RGFW does not link at all on
+        # Linux without them.
         set(LIBS_PRIVATE ${X11_LIBRARIES} ${OPENGL_LIBRARIES}
                          ${X11_Xrandr_LIB} ${X11_Xcursor_LIB} ${X11_Xi_LIB}
                          ${X11_Xinerama_LIB})
@@ -189,11 +190,12 @@ elseif ("${PLATFORM}" STREQUAL "WebRGFW")
     set(CMAKE_STATIC_LIBRARY_SUFFIX ".a")
 
 elseif ("${PLATFORM}" STREQUAL "Win32")
-    # PATCHED: raylib 6.0 ships a native Win32 backend in
-    # platforms/rcore_desktop_win32.c and rcore.c selects it with
-    # PLATFORM_DESKTOP_WIN32 — but upstream never added a branch here, so there
-    # is no way to ASK for it from CMake. This is that branch. GLFW drops out on
-    # its own: GlfwImport.cmake only builds it when PLATFORM matches "Desktop".
+    # PATCHED (raylib_cmake_template): raylib 6.0 ships the native Win32 backend
+    # (platforms/rcore_desktop_win32.c, selected by rcore.c with
+    # PLATFORM_DESKTOP_WIN32) but has no branch for it here, so there was no way
+    # to ask for it from CMake. GLFW drops out on its own: GlfwImport.cmake only
+    # builds it when PLATFORM matches "Desktop". Upstream added its own branch
+    # after 6.0: drop this patch once the raylib you update to has one.
     set(PLATFORM_CPP "PLATFORM_DESKTOP_WIN32")
 
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
