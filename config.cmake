@@ -50,9 +50,10 @@ set(LINUX_BACKEND "glfw")
 #   OFF  builds GLFW against X11, so on a Wayland desktop the game runs through
 #        XWayland — an extra hop, and the reason fractional scaling and
 #        per-monitor DPI misbehave there.
-#   ON   builds GLFW's native Wayland backend instead, and needs libwayland-dev,
-#        wayland-protocols and libxkbcommon-dev. Wayland has no window position,
-#        by design: GetWindowPosition() and SetWindowPosition() do not work there.
+#   ON   builds GLFW's native Wayland backend instead, and needs a few more
+#        packages: README.md, "Setting up", has them for each distribution.
+#        Wayland has no window position, by design: GetWindowPosition() and
+#        SetWindowPosition() do not work there.
 set(LINUX_WAYLAND OFF)
 
 # Your machine, for the debug preset only. The release and web presets always

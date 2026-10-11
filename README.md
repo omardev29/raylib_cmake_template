@@ -61,28 +61,85 @@ above, make — any make: GNU make, the old one macOS ships, or BSD make.
 
 ### Linux
 
+A compiler and make, CMake and Ninja, and the X11 and OpenGL headers raylib
+builds against. One line per family of distributions:
+
+**Debian and Ubuntu**, and those built on them: Mint, Pop!_OS, and the Ubuntu
+that WSL installs.
+
 ```bash
 sudo apt install build-essential cmake ninja-build \
     libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
 ```
 
-That is Debian and Ubuntu: `build-essential` brings GCC and make, and the rest
-are the X11 and OpenGL headers raylib builds against. Other distributions have
-the same libraries under their own names. `LINUX_WAYLAND ON` also needs
-`libwayland-dev libxkbcommon-dev wayland-protocols`. Ubuntu 24.04's CMake is
-recent enough; 22.04's (3.22) is not, and `pip install cmake` gets a current
-one.
+**Fedora**:
+
+```bash
+sudo dnf install gcc gcc-c++ make cmake ninja-build \
+    libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel \
+    libXi-devel mesa-libGL-devel
+```
+
+**Arch**, and those built on it: Manjaro, EndeavourOS. Arch's packages carry
+their own headers, so there are no `-dev` names:
+
+```bash
+sudo pacman -S --needed base-devel cmake ninja \
+    libx11 libxrandr libxinerama libxcursor libxi mesa
+```
+
+**openSUSE Tumbleweed**:
+
+```bash
+sudo zypper install gcc gcc-c++ make cmake ninja \
+    libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel \
+    libXi-devel Mesa-libGL-devel
+```
+
+**Alpine**, whose C library is musl rather than glibc — which raylib does not
+mind: Alpine packages raylib and GLFW itself. `samurai` is Alpine's Ninja, and
+`linux-headers` is there because GLFW's gamepad code includes kernel headers
+that musl does not ship:
+
+```bash
+doas apk add build-base cmake samurai linux-headers \
+    libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev mesa-dev
+```
+
+`LINUX_WAYLAND ON` needs a few more on top: the Wayland libraries, xkbcommon
+for the keyboard, and pkg-config, which GLFW uses to find them. Arch's
+`base-devel` and Alpine's `-dev` packages bring pkg-config already.
+
+| | `LINUX_WAYLAND ON` also needs |
+|---|---|
+| Debian, Ubuntu | `libwayland-dev libxkbcommon-dev pkg-config` |
+| Fedora | `wayland-devel libxkbcommon-devel pkgconf-pkg-config` |
+| Arch | `wayland libxkbcommon` |
+| openSUSE | `wayland-devel libxkbcommon-devel pkg-config` |
+| Alpine | `wayland-dev libxkbcommon-dev` |
+
+Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
+(3.22), where `pip install cmake` gets a current one.
+
+The Debian and Ubuntu line, and its Wayland row, were run here on a clean
+Ubuntu 24.04 with nothing else installed: debug, release, the `rgfw` backend
+and Wayland all built, and the game ran. The other distributions were not built
+here. Their package names were checked against how they package raylib and
+GLFW themselves, and against GLFW's and raylib's own instructions; raylib's and
+GLFW's C sources were also compiled against musl's headers.
 
 ### macOS
 
+The compiler and make come with Apple's command line tools, and CMake and Ninja
+with [Homebrew](https://brew.sh):
+
 ```bash
-xcode-select --install     # the compiler, and make
+xcode-select --install
 brew install cmake ninja
 ```
 
-The make that comes with Apple's command line tools is GNU make 3.81, from 2006,
-and the Makefile works with it. raylib supports macOS and the build handles it,
-but it has not been run on a Mac here.
+That make is GNU make 3.81, from 2006, and the Makefile works with it. raylib
+supports macOS and the build handles it, but it has not been run on a Mac here.
 
 ### Windows
 
@@ -110,7 +167,8 @@ Start. Visual Studio can also open the folder directly, because it reads
 **MSYS2.** In the **MSYS2 UCRT64** shell:
 
 ```bash
-pacman -S --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+pacman -S --needed make mingw-w64-ucrt-x86_64-gcc \
+    mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
 make run
 ```
 
@@ -118,14 +176,16 @@ Use the UCRT64 shell and the `mingw-w64-ucrt-x86_64-` packages, which build
 Windows programs. MSYS2's plain `cmake` package builds for MSYS2's own POSIX
 layer instead of for Windows, which is not what you want. Not tested here.
 
-**WSL.** Inside WSL you are on Linux, so follow the Linux steps: you build and
-run the Linux version, not a `.exe`. Showing its window needs a display server,
-and current WSL comes with one — WSLg, on Windows 11 and on Windows 10 with WSL
-from the Microsoft Store (`wsl --update`) — which speaks both X11 and Wayland,
-so there is nothing else to install. An older WSL needs an X server such as
-VcXsrv, with `DISPLAY` pointing at it. Keep the project in WSL's own file system
-(under `~`), not under `/mnt/c`, where builds are several times slower. For the
-`.exe`, use one of the ways above. Not tested here.
+**WSL.** Inside WSL you are on Linux, so you install what that distribution
+needs — WSL's default is Ubuntu, so the Debian and Ubuntu line above — and
+`make run` builds and runs the Linux version of the game, not a `.exe`. Its
+window needs a display server, and current WSL comes with one: WSLg, on Windows
+11 and on Windows 10 with WSL from the Microsoft Store (`wsl --update`). It
+speaks both X11 and Wayland, so there is nothing else to install. An older WSL
+needs an X server such as VcXsrv, with `DISPLAY` pointing at it. Keep the
+project in WSL's own file system (under `~`), not under `/mnt/c`, where builds
+are several times slower. For the `.exe`, use one of the ways above. Not tested
+here.
 
 ## The config
 
