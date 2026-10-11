@@ -4,10 +4,7 @@
         {
             "name": "base",
             "hidden": true,
-            "generator": "Ninja",
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-            }
+            "generator": "Ninja"
         },
         {
             "name": "debug",
@@ -23,7 +20,7 @@
             "name": "release",
             "displayName": "Release",
             "inherits": "base",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build/release",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "PRODUCTION_BUILD": "ON"
@@ -37,8 +34,7 @@
             "binaryDir": "${sourceDir}/build/web",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "PRODUCTION_BUILD": "ON",
-                "PLATFORM": "Web"
+                "PRODUCTION_BUILD": "ON"
             }
         }
     ],

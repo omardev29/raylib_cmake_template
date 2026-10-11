@@ -36,7 +36,10 @@ Checks: >
 # that fights the library you are using is a checker you turn off entirely,
 # which is worse than turning off six of its rules.
 
-HeaderFilterRegex: '.*/(src|include)/.*'
-ExcludeHeaderFilterRegex: '.*/(thirdparty|build)/.*|.*/app_config\.h'
+# Every header that is not a system header: yours. raylib and raylib-cpp are
+# added as SYSTEM in CMakeLists.txt, which is what keeps them out of this — a
+# path pattern cannot, because raylib's headers live in a directory called src/
+# too.
+HeaderFilterRegex: '.*'
 WarningsAsErrors: ''
 FormatStyle: file

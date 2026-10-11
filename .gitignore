@@ -1,10 +1,7 @@
-# Build output.
+# Build output: build/ (debug), build/release/ and build/web/.
 /build/
+# Visual Studio's default build directory, when a folder is opened without the presets.
 /out/
-
-# Generated from raylib.toml on every configure. Never committed, so it cannot
-# drift: the .toml is the only source of truth.
-/cmake/generated/
 
 # Editor and OS.
 .cache/

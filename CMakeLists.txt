@@ -1,214 +1,312 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.25)
 
-include(cmake/configure_hook.cmake)
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/project.cmake")
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build raylib as a static library" FORCE)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Generate compile_commands.json" FORCE)
-
-find_program(CCACHE_PROGRAM ccache)
-if(CCACHE_PROGRAM)
-  set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM})
-  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-endif()
+# Everything you would want to change lives in config.cmake: the game's name,
+# which raylib modules to build, the window backend, your local compiler and
+# linker. This file is how those settings become a build, and it reads top to
+# bottom.
+include(config.cmake)
 
 option(PRODUCTION_BUILD "Optimised build that reads resources/ next to the executable" OFF)
 
-# [dev] compiler and linker, and only for development builds: the release and
-# web presets are unaffected by anything in that section. Must precede
-# project(), which is where CMake locks the compiler in.
-if(NOT PRODUCTION_BUILD)
-  include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/dev_toolchain.cmake" OPTIONAL)
+# The presets always name a build type. Plain `cmake -B build` would get none —
+# no optimisation and no debug info — so it gets Debug.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Debug or Release" FORCE)
 endif()
 
-if(MSVC)
-  # Static CRT in every configuration, so the .exe runs on a machine without
-  # the Visual C++ redistributable.
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# --- check config.cmake ---------------------------------------------------------
+
+# A typo in config.cmake stops here, with a message that names the setting,
+# instead of surfacing later as a raylib or linker error that never mentions it.
+function(expect_one_of setting)
+  if(NOT "${${setting}}" IN_LIST ARGN)
+    list(JOIN ARGN " | " choices)
+    message(FATAL_ERROR "config.cmake: ${setting} is \"${${setting}}\"; it has to be one of: ${choices}")
+  endif()
+endfunction()
+
+if(NOT "${GAME_NAME}" MATCHES "^[A-Za-z0-9_-]+$")
+  message(FATAL_ERROR
+    "config.cmake: GAME_NAME \"${GAME_NAME}\" becomes a file name on every system. "
+    "Use letters, digits, _ and - only.")
+endif()
+# To CMake, "raudio rmodels" in quotes is one string, not two modules. Both that
+# and the list form (raudio rmodels, unquoted) mean what you meant.
+string(REGEX MATCHALL "[^ \t\r\n;]+" RAYLIB_DISABLED_MODULES "${RAYLIB_DISABLED_MODULES}")
+foreach(module IN LISTS RAYLIB_DISABLED_MODULES)
+  if(NOT "${module}" MATCHES "^(rshapes|rtextures|rtext|rmodels|raudio)$")
+    message(FATAL_ERROR
+      "config.cmake: RAYLIB_DISABLED_MODULES has \"${module}\". Pick from rshapes "
+      "rtextures rtext rmodels raudio — rcore and rlgl are mandatory.")
+  endif()
+endforeach()
+# raylib's own dependency, which its config.h only mentions in a comment: rtext
+# builds its fonts with rtextures. Without this, the link fails on functions
+# like GenImageColor that your code never called.
+if("rtextures" IN_LIST RAYLIB_DISABLED_MODULES AND NOT "rtext" IN_LIST RAYLIB_DISABLED_MODULES)
+  message(FATAL_ERROR
+    "config.cmake: rtext needs rtextures, so disabling rtextures means disabling "
+    "rtext too. Add rtext to RAYLIB_DISABLED_MODULES, or keep rtextures.")
+endif()
+expect_one_of(WINDOWS_BACKEND glfw win32 rgfw)
+expect_one_of(LINUX_BACKEND glfw rgfw)
+expect_one_of(LINUX_WAYLAND ON OFF)
+expect_one_of(DEV_COMPILER default clang gcc mingw msvc)
+expect_one_of(DEV_LINKER auto mold lld default)
+
+# Each valid on its own, together a contradiction: RGFW on Linux is X11-only, so
+# the build would quietly produce X11 while config.cmake said Wayland.
+if(LINUX_BACKEND STREQUAL "rgfw" AND LINUX_WAYLAND)
+  message(FATAL_ERROR
+    "config.cmake: LINUX_BACKEND rgfw is X11-only, so it cannot be combined with "
+    "LINUX_WAYLAND ON. Use glfw for native Wayland, or set LINUX_WAYLAND OFF.")
 endif()
 
-project(${TEMPLATE_PROJECT_NAME} LANGUAGES C CXX)
+# --- the toolchain --------------------------------------------------------------
 
-# [dev] linker, and it belongs here rather than with the compiler above:
-# choosing a linker means checking that it links, which means compiling, which
-# needs project() to have run.
-if(NOT PRODUCTION_BUILD)
-  include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/dev_linker.cmake" OPTIONAL)
+include(cmake/dev_compiler.cmake) # DEV_COMPILER: has to come before project()
+project(${GAME_NAME} LANGUAGES C CXX)
+include(cmake/dev_linker.cmake)   # DEV_LINKER: has to come after it
+
+# --- for every target -----------------------------------------------------------
+
+# These initialise properties of the targets created below, so they have to be
+# set before add_subdirectory() and add_executable().
+
+# raylib as a static library, linked into your executable: one file to ship.
+set(BUILD_SHARED_LIBS OFF)
+
+# MSVC: the static C runtime in every configuration, so the .exe runs on a
+# machine without the Visual C++ redistributable. Every other compiler ignores
+# it.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+# build/compile_commands.json, for clangd and clang-tidy.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ccache, if you have it.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+  set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
-add_executable("${CMAKE_PROJECT_NAME}")
 
-# --- raylib -----------------------------------------------------------------
+# --- raylib ---------------------------------------------------------------------
 
-# Which backend raylib is built against. Everything not named here is raylib's
-# own default: Desktop/GLFW on the desktops, Web under Emscripten.
-if(WIN32 AND TEMPLATE_WINDOWS_BACKEND STREQUAL "win32")
-  # raylib 6.0 ships a native Win32 backend but never added a CMake branch for
-  # it. That branch lives in thirdparty/raylib/cmake/LibraryConfigurations.cmake
-  # as a local patch — see the comment there. GLFW drops out on its own,
-  # because it is only built when PLATFORM matches "Desktop".
-  set(PLATFORM "Win32" CACHE STRING "" FORCE)
-  message(STATUS "=== WINDOWS BACKEND: native Win32, no GLFW ===")
-elseif(WIN32 AND TEMPLATE_WINDOWS_BACKEND STREQUAL "rgfw")
-  set(PLATFORM "RGFW" CACHE STRING "" FORCE)
-  message(STATUS "=== WINDOWS BACKEND: RGFW ===")
-elseif(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND TEMPLATE_LINUX_BACKEND STREQUAL "rgfw")
-  set(PLATFORM "RGFW" CACHE STRING "" FORCE)
-  message(STATUS "=== LINUX BACKEND: RGFW ===")
+# Which backend raylib is built on. PLATFORM is raylib's own setting; here it is
+# a plain variable, not a cache entry, so it is worked out again from
+# config.cmake on every configure and a backend you switched away from cannot
+# linger in the cache. GLFW ("Desktop") is the default everywhere.
+set(PLATFORM "Desktop")
+if(EMSCRIPTEN)
+  set(PLATFORM "Web")
+elseif(WIN32 AND WINDOWS_BACKEND STREQUAL "win32")
+  # raylib 6.0 ships the native Win32 backend but no CMake switch for it. The
+  # switch is a local patch to thirdparty/raylib (CMakeOptions.txt and
+  # cmake/LibraryConfigurations.cmake), commented there. GLFW drops out on its
+  # own: it is only built when PLATFORM is "Desktop".
+  set(PLATFORM "Win32")
+elseif(WIN32 AND WINDOWS_BACKEND STREQUAL "rgfw")
+  set(PLATFORM "RGFW")
+elseif(UNIX AND NOT APPLE AND LINUX_BACKEND STREQUAL "rgfw")
+  set(PLATFORM "RGFW")
 endif()
+message(STATUS "raylib backend: ${PLATFORM}")
 
-# [linux] wayland. By default GLFW is built against X11, so on a Wayland desktop
-# the game runs through XWayland — an extra hop, and the reason fractional
-# scaling and per-monitor DPI misbehave there. Turning it on builds GLFW's
-# native Wayland backend, which needs libwayland-dev, wayland-protocols and
-# libxkbcommon-dev.
-#
-# One difference you WILL see, and it is Wayland's design: there is no window
-# position. GetWindowPosition() and SetWindowPosition() do not work.
-if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN AND NOT PLATFORM STREQUAL "RGFW")
-  if(TEMPLATE_LINUX_WAYLAND)
-    set(GLFW_BUILD_WAYLAND ON  CACHE BOOL "" FORCE)
-    set(GLFW_BUILD_X11     OFF CACHE BOOL "" FORCE)
-    message(STATUS "=== LINUX: native Wayland (no X11, no XWayland) ===")
+# Linux with GLFW: X11 or native Wayland, from LINUX_WAYLAND.
+set(_wayland OFF)
+if(PLATFORM STREQUAL "Desktop" AND UNIX AND NOT APPLE)
+  set(_wayland ${LINUX_WAYLAND})
+  if(_wayland)
+    set(GLFW_BUILD_WAYLAND ON)
+    set(GLFW_BUILD_X11 OFF)
   else()
-    set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
-    set(GLFW_BUILD_X11     ON  CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_WAYLAND OFF)
+    set(GLFW_BUILD_X11 ON)
   endif()
 endif()
 
-add_subdirectory(thirdparty/raylib)
+# SYSTEM: raylib's headers count as system headers in your code, so your
+# warnings and clang-tidy stay about your code.
+add_subdirectory(thirdparty/raylib SYSTEM)
 
-# [raylib] disabled_modules. raylib's own SUPPORT_* options are not used: they
-# only take effect with CUSTOMIZE_BUILD=ON, and that flips roughly fifteen
-# flags that are 0 in config.h to ON, because raylib's ParseConfigHeader.cmake
-# maps any uncommented #define to ON without reading its value. The complete
-# set through EXTERNAL_CONFIG_FLAGS is the only way to get what was asked for.
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/generated/raylib_flags.cmake")
-target_compile_definitions(raylib PRIVATE ${RAYLIB_CONFIG_DEFS})
-
-# Disabling a module only makes the binary smaller if the linker can drop what
-# nobody calls. Without these two the code is compiled out of raylib but its
-# dependencies are still dragged in, and disabled_modules saves nothing.
-if(MSVC)
-  target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE /OPT:REF /OPT:ICF)
-elseif(EMSCRIPTEN)
-  # wasm-ld garbage-collects sections by default.
-else()
-  target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -ffunction-sections -fdata-sections)
-  target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections)
-  if(APPLE)
-    target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,-dead_strip)
-  else()
-    target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -Wl,--gc-sections)
-  endif()
+# raylib's CMake tells raylib's own sources about X11 (_GLFW_X11) but never
+# about Wayland, so with Wayland on, raylib's Wayland code — the HiDPI scaling
+# fix, GetWindowHandle() — would be compiled out.
+if(_wayland)
+  target_compile_definitions(raylib PRIVATE _GLFW_WAYLAND)
 endif()
 
-# raylib is compiled quietly. It builds clean on the compiler its authors use
-# and noisily on the next one along: clang — which is what macOS has, and what
-# MSYS2 often has — does not know GCC's -Wno-stringop-overflow and says so once
-# per translation unit, and stb_vorbis.c has a pointer comparison that is
-# tautological on every 64-bit target. Neither is a bug anyone here can act on,
-# and together they bury the warnings that ARE yours.
-#
-# -Werror= survives this: -w inhibits warnings, not errors, so raylib's own
-# -Werror=pointer-arith still stops the build if it ever fires.
+# RAYLIB_DISABLED_MODULES. Every switch in raylib 6.0's config.h sits inside an
+# #ifndef, so turning a module off is one definition and nothing else.
+foreach(module IN LISTS RAYLIB_DISABLED_MODULES)
+  string(TOUPPER "${module}" module)
+  target_compile_definitions(raylib PRIVATE "SUPPORT_MODULE_${module}=0")
+endforeach()
+if(RAYLIB_DISABLED_MODULES)
+  message(STATUS "raylib modules disabled: ${RAYLIB_DISABLED_MODULES}")
+endif()
+
+# raylib is compiled quietly. Its code is not yours to fix, and what it warns
+# about changes with every compiler: an ignored return value under GCC's -O3,
+# miniaudio's deprecated Emscripten macros, a pointer comparison in stb_vorbis
+# that is tautological on some targets. Silenced, none of it can bury the
+# warnings that ARE yours. -w silences warnings, not errors: raylib's own
+# -Werror=... flags still stop the build.
 if(MSVC)
   target_compile_options(raylib PRIVATE /w)
 else()
   target_compile_options(raylib PRIVATE -w)
 endif()
 
-# --- your code --------------------------------------------------------------
+# --- your game ------------------------------------------------------------------
 
-# Every .cpp and .c under src/ is compiled. Adding a file needs no CMake edit;
+add_executable(${GAME_NAME})
+
+# Every .cpp and .c under src/ is compiled. Adding a file needs no CMake edit:
 # CONFIGURE_DEPENDS makes the build notice a new one on its own.
-file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
-)
-target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES})
+file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.c)
+target_sources(${GAME_NAME} PRIVATE ${GAME_SOURCES})
+target_include_directories(${GAME_NAME} PRIVATE include)
+target_compile_features(${GAME_NAME} PRIVATE cxx_std_20)
 
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/"
-)
+target_link_libraries(${GAME_NAME} PRIVATE raylib)
+
+# raylib-cpp, the optional C++ wrapper. It is header-only, so an include path
+# is all it takes: #include <raylib-cpp.hpp> when you want it, plain raylib
+# otherwise.
+target_include_directories(${GAME_NAME} SYSTEM PRIVATE thirdparty/raylib-cpp/include)
+
+# Your warnings. raylib's are silenced above, so whatever shows up is yours.
+if(MSVC)
+  target_compile_options(${GAME_NAME} PRIVATE /W4)
+else()
+  target_compile_options(${GAME_NAME} PRIVATE -Wall -Wextra)
+endif()
+
+# MinGW links libstdc++ and libgcc as DLLs by default, so the moment your code
+# uses std::string the .exe stops starting on any machine without MSYS2.
+# -static puts them inside it.
+if(MINGW)
+  target_link_options(${GAME_NAME} PRIVATE -static)
+endif()
 
 # RESOURCES_PATH is how your code finds resources/. In development it is an
 # absolute path, so the game loads its assets whatever directory you launch it
-# from; in a production build it is relative, and resources/ ships next to the
-# executable.
+# from. In a production build it is relative, and resources/ travels with the
+# game: copied next to the executable, or bundled into the web build.
 if(PRODUCTION_BUILD)
   set(RESOURCES_PATH "./resources/")
 else()
   set(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 endif()
-target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC
-  RESOURCES_PATH="${RESOURCES_PATH}")
-message(STATUS "=== RESOURCES PATH: ${RESOURCES_PATH} ===")
+target_compile_definitions(${GAME_NAME} PRIVATE RESOURCES_PATH="${RESOURCES_PATH}")
 
-# --- optimisation, per build type -------------------------------------------
+# --- production builds: the release and web presets ----------------------------
 
 if(PRODUCTION_BUILD)
-  target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=1)
+  target_compile_definitions(${GAME_NAME} PRIVATE PRODUCTION_BUILD=1)
+
+  # Windows: no console window behind the game. CMake turns this into
+  # /SUBSYSTEM:WINDOWS or -mwindows, and every other system ignores it. MSVC
+  # also has to be told the entry point, so that a plain main() still works.
+  set_target_properties(${GAME_NAME} PROPERTIES WIN32_EXECUTABLE ON)
   if(MSVC)
-    # /SUBSYSTEM:WINDOWS so a released build does not open a console window
-    # behind the game. mainCRTStartup keeps plain main() as the entry point.
-    set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
-      LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE /O2 /GL)
-    target_compile_options(raylib PRIVATE /O2 /GL)
-    set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-  elseif(EMSCRIPTEN)
-    # -Oz, not -O3: on the web what costs the player is the download.
-    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -Oz)
+    target_link_options(${GAME_NAME} PRIVATE /ENTRY:mainCRTStartup)
+  endif()
+
+  if(EMSCRIPTEN)
+    # -Oz, not -O3: on the web what costs the player is the download. For
+    # linking too, because that is where wasm-opt runs.
+    target_compile_options(${GAME_NAME} PRIVATE -Oz)
     target_compile_options(raylib PRIVATE -Oz)
+    target_link_options(${GAME_NAME} PRIVATE -Oz)
   else()
-    if(MINGW)
-      target_link_options("${CMAKE_PROJECT_NAME}" PRIVATE -mwindows)
+    # Link-time optimisation, checked rather than assumed: clang with the system
+    # linker needs a plugin that is not always installed, and a missing plugin
+    # should cost some speed, not the build.
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR LANGUAGES C CXX)
+    if(LTO_SUPPORTED)
+      set_property(TARGET ${GAME_NAME} raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
+    else()
+      message(STATUS "No link-time optimisation here: ${LTO_ERROR}")
     endif()
-    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O3)
-    target_compile_options(raylib PRIVATE -O3)
-    set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    set_property(TARGET raylib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+    # Let the linker drop whatever nothing calls. MSVC does it on its own in a
+    # release build.
+    if(NOT MSVC)
+      target_compile_options(${GAME_NAME} PRIVATE -ffunction-sections -fdata-sections)
+      target_compile_options(raylib PRIVATE -ffunction-sections -fdata-sections)
+      if(APPLE)
+        target_link_options(${GAME_NAME} PRIVATE -Wl,-dead_strip)
+      else()
+        target_link_options(${GAME_NAME} PRIVATE -Wl,--gc-sections)
+      endif()
+    endif()
+
+    # resources/ next to the executable, where "./resources/" finds it when the
+    # game is started from its own folder — a double click does exactly that.
+    # The folder that holds the executable is the folder you ship. Copied on
+    # every build, so an edited asset is never stale.
+    add_custom_target(copy_resources ALL
+      COMMAND "${CMAKE_COMMAND}" -E copy_directory
+              "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+              "$<TARGET_FILE_DIR:${GAME_NAME}>/resources")
+    add_dependencies(${GAME_NAME} copy_resources)
   endif()
 else()
-  target_compile_definitions("${CMAKE_PROJECT_NAME}" PUBLIC PRODUCTION_BUILD=0)
-  if(MSVC)
-    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE /Od /Zi)
-  else()
-    target_compile_options("${CMAKE_PROJECT_NAME}" PRIVATE -O0 -g)
-  endif()
+  target_compile_definitions(${GAME_NAME} PRIVATE PRODUCTION_BUILD=0)
 endif()
 
-# --- web --------------------------------------------------------------------
+# --- web ------------------------------------------------------------------------
 
 if(EMSCRIPTEN)
-  set_target_properties("${CMAKE_PROJECT_NAME}" PROPERTIES
-    SUFFIX ".html"
-    # -sASYNCIFY is what lets src/main.cpp keep an ordinary
-    # `while (!WindowShouldClose())` loop in a browser, with no #if anywhere in
-    # your code. That matters here: this template's whole point is that you
-    # write plain raylib, and a platform fork in main() is the first crack in
-    # that promise.
-    #
-    # It is not free, and the trade is worth knowing. A browser cannot be
-    # blocked, so the loop has to yield — raylib's WindowShouldClose() does it
-    # with emscripten_sleep(). ASYNCIFY makes a sleep inside an ordinary
-    # function possible by instrumenting every function that could be on the
-    # stack when it happens, which is most of them, and you pay in download
-    # size and a little speed whether or not anything ever suspends.
-    #
-    # The alternative is emscripten_set_main_loop() plus an #if in main(), and
-    # it is what raylib_multiplatform does, because it ships to fourteen
-    # targets and the download matters there. Here, staying plain matters more.
-    #
-    # --preload-file bundles resources/ into a .data file next to the .html, so
-    # RESOURCES_PATH resolves in the browser's virtual filesystem exactly as it
-    # does on disk.
-    LINK_FLAGS "-sUSE_GLFW=3 -sASYNCIFY -sTOTAL_MEMORY=67108864 -sALLOW_MEMORY_GROWTH=1 \
---preload-file ${CMAKE_SOURCE_DIR}/resources@/resources/"
-  )
+  set_target_properties(${GAME_NAME} PROPERTIES SUFFIX ".html")
+
+  # -sASYNCIFY is what lets src/main.cpp keep an ordinary
+  # `while (!WindowShouldClose())` loop in a browser, with no #if anywhere in
+  # your code. That matters here: this template's whole point is that you write
+  # plain raylib, and a platform fork in main() is the first crack in that.
+  #
+  # It is not free. A browser cannot be blocked, so the loop has to yield —
+  # raylib's WindowShouldClose() does it with emscripten_sleep(). ASYNCIFY makes
+  # a sleep inside an ordinary function possible by instrumenting every function
+  # that could be on the stack when it happens, which is most of them, and you
+  # pay in download size and a little speed whether or not anything suspends.
+  # The alternative is emscripten_set_main_loop() plus an #if in main(), which
+  # is what raylib_multiplatform does: it ships to fourteen targets and the
+  # download matters there. Here, staying plain matters more.
+  #
+  # --preload-file bundles resources/ into a .data file next to the .html,
+  # mounted at /resources, so RESOURCES_PATH resolves in the browser exactly as
+  # it does on disk.
+  target_link_options(${GAME_NAME} PRIVATE
+    -sASYNCIFY
+    -sINITIAL_MEMORY=67108864
+    -sALLOW_MEMORY_GROWTH=1
+    "SHELL:--preload-file \"${CMAKE_CURRENT_SOURCE_DIR}/resources@/resources/\"")
+
+  # The bundle is made when linking, so a changed asset has to cause a relink.
+  # The files themselves cover an edit. resources.txt, the list of them,
+  # covers a new, deleted or renamed one: `mv` keeps a file's old timestamp, so
+  # nothing would look newer than the bundle. file(CONFIGURE) only rewrites the
+  # list when it changed.
+  file(GLOB_RECURSE RESOURCE_FILES CONFIGURE_DEPENDS resources/*)
+  file(CONFIGURE OUTPUT resources.txt CONTENT "${RESOURCE_FILES}" @ONLY)
+  set_property(TARGET ${GAME_NAME} APPEND PROPERTY LINK_DEPENDS
+    ${RESOURCE_FILES} "${CMAKE_CURRENT_BINARY_DIR}/resources.txt")
 endif()
 
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE raylib)
+# --- run ------------------------------------------------------------------------
+
+# cmake --build --preset debug --target run
+# builds whatever changed, then starts the game. On the web it serves the page
+# with emrun, which comes with the emsdk, and opens your browser.
+if(EMSCRIPTEN)
+  add_custom_target(run COMMAND emrun "$<TARGET_FILE:${GAME_NAME}>" USES_TERMINAL)
+  add_dependencies(run ${GAME_NAME})
+else()
+  add_custom_target(run COMMAND ${GAME_NAME}
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL)
+endif()

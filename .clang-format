@@ -30,8 +30,10 @@ AllowShortLoopsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
 
 # Never re-wrap a comment. File headers carry hand-wrapped paragraphs and the
-# occasional table, and a formatter that reflows them destroys them.
-ReflowComments: Never
+# occasional table, and a formatter that reflows them destroys them. `false`
+# rather than `Never`: clang-format 20 reads it as Never, and the clang-format
+# 18 that Ubuntu 24.04 ships rejects the word Never outright.
+ReflowComments: false
 
 # `const char *name`, not `const char* name`. Matches raylib.
 DerivePointerAlignment: false
