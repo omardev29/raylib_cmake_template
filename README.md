@@ -28,36 +28,104 @@ int main() {
 ## Start
 
 ```bash
-just run          # builds what changed, then plays
+make run          # compiles what changed, then plays
 ```
 
-Or without `just`, which is all it does:
+Or without make, which is all it does:
 
 ```bash
 cmake --preset debug
 cmake --build --preset debug --target run
 ```
 
-`just` on its own lists everything. There are five recipes:
-
 | | |
 |---|---|
-| `just run` | build what changed, then play |
-| `just dev` | compile the debug build, into `build/` |
-| `just rel` | compile the build you ship, into `build/release/` |
-| `just web` | compile for the browser, into `build/web/` |
-| `just clean` | delete every build |
+| `make` | compile the debug build, into `build/` |
+| `make run` | compile what changed, then play |
+| `make rel` | compile the build you ship, into `build/release/` |
+| `make web` | compile for the browser, into `build/web/` |
+| `make serve` | play the web build: emrun serves it and opens your browser |
+| `make clean` | delete every build |
 
-Each recipe is one or two CMake commands, so the `Justfile` doubles as a cheat
-sheet.
+Every recipe is a single CMake command, so the `Makefile` doubles as a cheat
+sheet. make configures only when a build directory is new or
+`CMakePresets.json` changed; what to compile is up to Ninja, underneath CMake,
+which compares every source, header and compiler flag with what it built last.
+So `make run` after an edit compiles just what the edit touched and plays, and
+with no edit it plays straight away.
 
-**You need** CMake 3.25 or newer (Ubuntu 24.04's is fine), Ninja and a C/C++
-compiler; [`just`](https://just.systems) is optional. On Debian and Ubuntu,
-raylib also needs the X11 headers:
+## Setting up
+
+You need CMake 3.25 or newer, Ninja, a C/C++ compiler and, for the commands
+above, make — any make: GNU make, the old one macOS ships, or BSD make.
+
+### Linux
 
 ```bash
-sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
+sudo apt install build-essential cmake ninja-build \
+    libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
 ```
+
+That is Debian and Ubuntu: `build-essential` brings GCC and make, and the rest
+are the X11 and OpenGL headers raylib builds against. Other distributions have
+the same libraries under their own names. `LINUX_WAYLAND ON` also needs
+`libwayland-dev libxkbcommon-dev wayland-protocols`. Ubuntu 24.04's CMake is
+recent enough; 22.04's (3.22) is not, and `pip install cmake` gets a current
+one.
+
+### macOS
+
+```bash
+xcode-select --install     # the compiler, and make
+brew install cmake ninja
+```
+
+The make that comes with Apple's command line tools is GNU make 3.81, from 2006,
+and the Makefile works with it. raylib supports macOS and the build handles it,
+but it has not been run on a Mac here.
+
+### Windows
+
+Each of these builds a native `.exe`, and the Makefile works in all of them,
+typed in cmd.exe, PowerShell or MSYS2's shell alike: its recipes are cmake
+commands and nothing else.
+
+**Scoop and MinGW**, the shortest road. With [Scoop](https://scoop.sh):
+
+```powershell
+scoop install make cmake ninja mingw
+make run
+```
+
+`mingw` is GCC for Windows. This exact set — scoop's make, CMake, Ninja and
+GCC — was tested here, under Wine, with cmd.exe as the shell.
+
+**Visual Studio (MSVC).** Install Visual Studio, or just its Build Tools, with
+the "Desktop development with C++" workload, which brings CMake and Ninja too.
+Open **Developer PowerShell for VS** — that is what puts the compiler on PATH —
+and run `make run` (after `scoop install make`) or the two cmake commands from
+Start. Visual Studio can also open the folder directly, because it reads
+`CMakePresets.json`. Not tested here: there is no MSVC on Linux.
+
+**MSYS2.** In the **MSYS2 UCRT64** shell:
+
+```bash
+pacman -S --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+make run
+```
+
+Use the UCRT64 shell and the `mingw-w64-ucrt-x86_64-` packages, which build
+Windows programs. MSYS2's plain `cmake` package builds for MSYS2's own POSIX
+layer instead of for Windows, which is not what you want. Not tested here.
+
+**WSL.** Inside WSL you are on Linux, so follow the Linux steps: you build and
+run the Linux version, not a `.exe`. Showing its window needs a display server,
+and current WSL comes with one — WSLg, on Windows 11 and on Windows 10 with WSL
+from the Microsoft Store (`wsl --update`) — which speaks both X11 and Wayland,
+so there is nothing else to install. An older WSL needs an X server such as
+VcXsrv, with `DISPLAY` pointing at it. Keep the project in WSL's own file system
+(under `~`), not under `/mnt/c`, where builds are several times slower. For the
+`.exe`, use one of the ways above. Not tested here.
 
 ## The config
 
@@ -83,7 +151,7 @@ build: CMake notices the change and reconfigures on its own. There is no
 generator and no other step, and every value is checked when CMake configures —
 a typo stops the build with a message that names the setting.
 
-- `GAME_NAME` → the CMake project and the executable. `just run` goes through a
+- `GAME_NAME` → the CMake project and the executable. `make run` goes through a
   CMake `run` target, so it follows a rename on its own.
 - `CMAKE_C_STANDARD`, `CMAKE_CXX_STANDARD` → the language standards your code is
   compiled with. See below.
@@ -98,7 +166,7 @@ a typo stops the build with a message that names the setting.
   only**. `release` and `web` build in directories of their own with the
   platform's defaults, so nothing here can change what you ship. `mold` is worth
   having on PATH on Linux; it makes the link almost free. Going back to
-  `DEV_COMPILER "default"` needs a `just clean` — CMake cannot un-pick a
+  `DEV_COMPILER "default"` needs a `make clean` — CMake cannot un-pick a
   compiler, and the build tells you so instead of quietly keeping the old one.
 
 ### C and C++ standards
@@ -106,7 +174,7 @@ a typo stops the build with a message that names the setting.
 `CMAKE_C_STANDARD` and `CMAKE_CXX_STANDARD` are CMake's own variables: they set
 the standard of every target that does not choose one itself — your game, and
 any library you add. raylib and GLFW are C99 code and pin that themselves, so
-these never reach them. You get exactly what you ask for, in the GNU flavour on
+these never reach them. You get exactly what you ask for, in the GNU flavor on
 GCC and Clang (`-std=gnu++20`, CMake's default); if the compiler cannot do it,
 the configure stops with CMake's own message rather than quietly using an older
 standard.
@@ -141,8 +209,21 @@ CMake defines that macro, and it differs between build types on purpose: in a
 development build it is an **absolute** path, so the game finds its assets
 whatever directory you launch it from; in a `release` build it is
 `./resources/`, and the build copies `resources/` next to the executable. The
-web build bundles it into a `.data` file next to the page. `PRODUCTION_BUILD`
-is defined too, `1` or `0`, if your code needs to tell the two apart.
+web build bundles it into a `.data` file next to the page, and there it is
+`./resources/` in every build. `PRODUCTION_BUILD` is defined too, `1` or `0`, if
+your code needs to tell the two apart.
+
+`./resources/` is relative to the folder the game was started in. Windows starts
+a double-clicked program in its own folder, so there it just works. macOS's
+Finder starts it in your home folder instead, and Linux file managers vary; if
+you ship there, have the game move to its own folder first. raylib has both
+halves of that, and it is one line at the top of `main()`:
+
+```cpp
+#if PRODUCTION_BUILD
+    ChangeDirectory(GetApplicationDirectory());
+#endif
+```
 
 ## The three targets
 
@@ -150,20 +231,23 @@ is defined too, `1` or `0`, if your code needs to tell the two apart.
 cross-compilation here: you build Windows on Windows.
 
 ```bash
-just rel          # or: cmake --preset release && cmake --build --preset release
+make rel          # or: cmake --preset release && cmake --build --preset release
 ```
 
 `build/release/` then holds the executable and its `resources/`: that folder is
 what you ship. A Windows release has no console window behind the game, and runs
 on a machine with nothing installed — the static C runtime with MSVC, and
-`-static` with MinGW, so there is no `libstdc++-6.dll` to forget.
+`-static` with MinGW, so there is no `libstdc++-6.dll` to forget. The copy of
+`resources/` is refreshed on every build but never pruned: if you renamed or
+deleted an asset since, `make clean` before `make rel`, or the old file ships
+too.
 
 **The web** needs the [emsdk](https://emscripten.org/docs/getting_started/downloads.html)
 activated:
 
 ```bash
-just web
-cmake --build --preset web --target run   # emrun serves it and opens your browser
+make web
+make serve        # emrun serves it and opens your browser
 ```
 
 Any static file server will do instead of emrun
@@ -171,14 +255,14 @@ Any static file server will do instead of emrun
 from the filesystem: the browser will refuse to load the `.data` file next to
 it.
 
-### How optimised is a release build?
+### How optimized is a release build?
 
 As far as a binary goes while it still runs on any machine of its kind:
 
 | | Linux, MinGW, macOS | MSVC | Web |
 |---|---|---|---|
-| Optimisation level | `-O3` | `/O2` | `-Oz`, for size |
-| Link-time optimisation | yes, where the toolchain supports it | yes | yes, full LTO |
+| Optimization level | `-O3` | `/O2` | `-Oz`, for size |
+| Link-time optimization | yes, where the toolchain supports it | yes | yes, full LTO |
 | Unused code removed | `--gc-sections` (`-dead_strip` on macOS) | `/OPT:REF` | always |
 | Symbols stripped | yes (not on macOS) | no `.pdb` in a release | yes |
 | `assert()` | off | off | off |
@@ -196,7 +280,7 @@ What is deliberately left off, because each one trades something away:
   `CMakeLists.txt`.
 - **`-ffast-math`** speeds up floating point by breaking its rules (NaN,
   infinity, the order of operations), so results change.
-- **Profile-guided optimisation** needs a representative training run before
+- **Profile-guided optimization** needs a representative training run before
   every release. Worth it for a CPU-bound game; many raylib games are bound by
   the GPU and the frame cap instead.
 
@@ -393,11 +477,11 @@ only things that are not negotiable:
 |---|---|---|
 | top | reads `config.cmake`, checks it, defaults to a Debug build | New settings go in `config.cmake`, their checks in `cmake/check_config.cmake`. |
 | toolchain | `DEV_COMPILER` and `DEV_LINKER` | Keep the order (rule 1). Never use them? Delete both includes, both files, and their settings and checks. |
-| for every target | standards, static linking, the MSVC runtime, `compile_commands.json`, ccache, production optimisation | Flags for every target go here (rule 2). ccache can go. |
+| for every target | standards, static linking, the MSVC runtime, `compile_commands.json`, ccache, production optimization | Flags for every target go here (rule 2). ccache can go. |
 | raylib | backend, Wayland, disabled modules, raylib's warnings | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
-| run | the `run` target | Can go, along with `just run`. |
+| run | the `run` target | Can go; then take `run` and `serve` out of the Makefile too. |
 
 Some things look removable and are not:
 
@@ -431,8 +515,7 @@ To move to a newer raylib:
    version removed.
 3. For each `PATCHED` block, check whether the new raylib still needs it, and
    re-apply it if so.
-4. Build every preset you use — `just dev`, `just rel`, `just web` — and run
-   them.
+4. Build every preset you use — `make`, `make rel`, `make web` — and run them.
 5. Update raylib-cpp to its matching release: its version follows raylib's
    (6.0.x is for raylib 6.0). It is header-only, so that is copying `include/`.
 
@@ -449,9 +532,10 @@ What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 This was tried against raylib's master of 10 October 2026 (6.1-dev), with no
 patches at all. `CMakeLists.txt` needed no change: GLFW, Wayland, the web and
 Windows with all three backends built, and the Linux builds ran. The `Win32`
-patch is upstream there, so it can be dropped. The RGFW one is still needed on Linux —
-without it the link fails on `XRRFreeCrtcInfo` — and raylib's CMake still builds
-an X11-only GLFW unless told otherwise, so `LINUX_WAYLAND` still matters.
+patch is upstream there, so it can be dropped. The RGFW one is still needed on
+Linux — without it the link fails on `XRRFreeCrtcInfo` — and raylib's CMake
+still builds an X11-only GLFW unless told otherwise, so `LINUX_WAYLAND` still
+matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.
@@ -468,7 +552,7 @@ include/                your headers
 resources/              your assets
 thirdparty/raylib/      raylib 6.0, plus the changes marked PATCHED
 thirdparty/raylib-cpp/  raylib-cpp's headers, there if you want them
-Justfile                the five commands above
+Makefile                the six commands above
 ```
 
 Adding a source file needs **no CMake edit**: `src/` is globbed recursively, and
@@ -494,7 +578,8 @@ at each step. The parts worth slowing down for:
 - **Targets and their scopes.** `PRIVATE`, `SYSTEM`, and
   `target_compile_definitions()` on `raylib` from the outside.
 - **Generator expressions.** `$<CONFIG:Debug>` picks the MSVC runtime per
-  configuration; `$<TARGET_FILE_DIR:...>` is where the executable ends up.
+  configuration, `$<BOOL:...>` turns `ON`/`OFF` into the `1`/`0` your code
+  sees, and `$<TARGET_FILE_DIR:...>` is where the executable ends up.
 - **Presets.** `CMakePresets.json` is the three builds; each gets its own
   directory, so switching between them never rebuilds the others.
 
@@ -508,8 +593,8 @@ that is a different project:
 
 This one is for when you just want to write raylib.
 
-## Licence
+## License
 
-This template is under the [MIT licence](LICENSE). raylib and raylib-cpp are
+This template is under the [MIT license](LICENSE). raylib and raylib-cpp are
 under zlib; see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for what is
 vendored.

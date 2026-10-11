@@ -14,9 +14,14 @@ if(NOT "${GAME_NAME}" MATCHES "^[A-Za-z0-9_-]+$")
     "config.cmake: GAME_NAME \"${GAME_NAME}\" becomes a file name on every system. "
     "Use letters, digits, _ and - only.")
 endif()
+if(GAME_NAME MATCHES "^(raylib|glfw|run|copy_resources)$")
+  message(FATAL_ERROR
+    "config.cmake: GAME_NAME \"${GAME_NAME}\" is the name of a target the build "
+    "already has. Pick another one.")
+endif()
 
 # The floor is raylib.h's own: under C++98 it stops with #error, and its
-# colours are compound literals, which C89 does not have.
+# colors are compound literals, which C89 does not have.
 expect_one_of(CMAKE_C_STANDARD 99 11 17 23)
 expect_one_of(CMAKE_CXX_STANDARD 11 14 17 20 23 26)
 

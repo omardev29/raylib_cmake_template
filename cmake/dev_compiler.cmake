@@ -10,8 +10,10 @@
 # that already has a compiler locked in stops with a message, rather than
 # quietly carrying on with the old one.
 
-if(PRODUCTION_BUILD)
-  return() # release and web always build with the platform's default
+# Release and web always build with the platform's default, and a toolchain
+# file (the web's) brings its own compiler.
+if(PRODUCTION_BUILD OR CMAKE_TOOLCHAIN_FILE)
+  return()
 endif()
 
 if(DEV_COMPILER STREQUAL "default")
@@ -19,7 +21,7 @@ if(DEV_COMPILER STREQUAL "default")
     message(FATAL_ERROR
       "DEV_COMPILER is back to \"default\", but this build directory is locked to "
       "${CMAKE_CXX_COMPILER} and CMake cannot un-pick a compiler. Delete it "
-      "(`just clean`) and configure again.")
+      "(`make clean`) and configure again.")
   endif()
   return()
 endif()

@@ -6,11 +6,14 @@ cmake_minimum_required(VERSION 3.25)
 include(config.cmake)
 include(cmake/check_config.cmake) # a typo in config.cmake stops here, by name
 
-option(PRODUCTION_BUILD "Optimised build that reads resources/ next to the executable" OFF)
+option(PRODUCTION_BUILD "Optimized build that reads resources/ next to the executable" OFF)
 
 # The presets always name a build type. Plain `cmake -B build` gets Debug rather
-# than none at all, which would mean no optimisation and no debug info.
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+# than none at all, which would mean no optimization and no debug info.
+# Generators with several configurations (Visual Studio, Xcode) pick one at
+# build time instead, and are left alone.
+get_property(MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT CMAKE_BUILD_TYPE AND NOT MULTI_CONFIG)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Debug or Release" FORCE)
 endif()
 
@@ -47,7 +50,7 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
-# Production builds (the release and web presets): optimised as far as a binary
+# Production builds (the release and web presets): optimized as far as a binary
 # can go and still run on any machine — README.md says what is on and what is
 # deliberately left off. -O3 itself comes from the Release build type.
 if(PRODUCTION_BUILD)
@@ -58,14 +61,14 @@ if(PRODUCTION_BUILD)
     add_compile_options(-Oz -flto)
     add_link_options(-Oz -flto)
   else()
-    # Link-time optimisation, checked rather than assumed: clang with the
+    # Link-time optimization, checked rather than assumed: clang with the
     # system linker needs a plugin that is not always installed, and a missing
     # plugin should cost some speed, not the build.
     include(CheckIPOSupported)
     check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO_SUPPORTED})
     if(NOT LTO_SUPPORTED)
-      message(STATUS "No link-time optimisation here: ${LTO_ERROR}")
+      message(STATUS "No link-time optimization here: ${LTO_ERROR}")
     endif()
 
     # Drop whatever nothing calls, and the symbol table nobody reads. MSVC does
@@ -168,17 +171,17 @@ if(MINGW)
   target_link_options(${GAME_NAME} PRIVATE -static)
 endif()
 
-# PRODUCTION_BUILD and RESOURCES_PATH, for your code. In development
+# PRODUCTION_BUILD (1 or 0) and RESOURCES_PATH, for your code. In development
 # RESOURCES_PATH is absolute, so the game finds its assets whatever directory
 # you start it from. In production it is relative, and resources/ travels with
-# the game: copied next to the executable below, or bundled into the web build.
-if(PRODUCTION_BUILD)
-  target_compile_definitions(${GAME_NAME} PRIVATE
-    PRODUCTION_BUILD=1 RESOURCES_PATH="./resources/")
-else()
-  target_compile_definitions(${GAME_NAME} PRIVATE
-    PRODUCTION_BUILD=0 RESOURCES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/resources/")
+# the game: copied next to the executable below. On the web it is relative in
+# every build, because the bundle is always mounted at /resources.
+set(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
+if(PRODUCTION_BUILD OR EMSCRIPTEN)
+  set(RESOURCES_PATH "./resources/")
 endif()
+target_compile_definitions(${GAME_NAME} PRIVATE
+  PRODUCTION_BUILD=$<BOOL:${PRODUCTION_BUILD}> RESOURCES_PATH="${RESOURCES_PATH}")
 
 if(PRODUCTION_BUILD AND NOT EMSCRIPTEN)
   # Windows: no console window behind the game. CMake turns this into
@@ -190,13 +193,18 @@ if(PRODUCTION_BUILD AND NOT EMSCRIPTEN)
   endif()
 
   # resources/ next to the executable, where "./resources/" finds it when the
-  # game is started from its own folder — a double click does exactly that.
-  # The folder that holds the executable is the folder you ship. Copied on
-  # every build, so an edited asset is never stale.
+  # game is started from its own folder, as a double click does on Windows
+  # (README.md, "Resources", for macOS and Linux). The folder that holds the
+  # executable is the folder you ship. Copied on every build, so an edited
+  # asset is never stale; one you renamed or deleted stays until `make clean`.
+  # VERBATIM hands each argument to the command exactly as written. Without
+  # it, a project in a folder like "Bob's games" fails to build on Linux and
+  # macOS: the apostrophe reaches the shell as a quote.
   add_custom_target(copy_resources ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-            "$<TARGET_FILE_DIR:${GAME_NAME}>/resources")
+            "$<TARGET_FILE_DIR:${GAME_NAME}>/resources"
+    VERBATIM)
   add_dependencies(${GAME_NAME} copy_resources)
 endif()
 
@@ -232,9 +240,10 @@ endif()
 # builds whatever changed, then starts the game. On the web it serves the page
 # with emrun, which comes with the emsdk, and opens your browser.
 if(EMSCRIPTEN)
-  add_custom_target(run COMMAND emrun "$<TARGET_FILE:${GAME_NAME}>" USES_TERMINAL)
+  add_custom_target(run COMMAND emrun "$<TARGET_FILE:${GAME_NAME}>"
+    USES_TERMINAL VERBATIM)
   add_dependencies(run ${GAME_NAME})
 else()
   add_custom_target(run COMMAND ${GAME_NAME}
-    WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL)
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL VERBATIM)
 endif()

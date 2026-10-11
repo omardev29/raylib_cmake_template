@@ -3,8 +3,8 @@
 # Included AFTER project(): choosing a linker means checking that it links, and
 # checking means compiling a test program, which needs a compiler.
 
-if(PRODUCTION_BUILD OR DEV_LINKER STREQUAL "default")
-  return()
+if(PRODUCTION_BUILD OR CMAKE_TOOLCHAIN_FILE OR DEV_LINKER STREQUAL "default")
+  return() # same rules as DEV_COMPILER
 endif()
 if(MSVC)
   message(STATUS "DEV_LINKER: MSVC always links with its own link.exe")
