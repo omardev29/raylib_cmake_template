@@ -102,6 +102,8 @@ elseif(WIN32)
 elseif(UNIX AND NOT APPLE) # Linux and the BSDs
   if(LINUX_BACKEND STREQUAL "rgfw")
     set(PLATFORM "RGFW")
+  elseif(LINUX_BACKEND STREQUAL "drm")
+    set(PLATFORM "DRM") # a text console, no desktop: README.md, "A text console (DRM)"
   endif()
   # GLFW's display server: native Wayland, or X11 — which a Wayland desktop
   # then runs through XWayland.

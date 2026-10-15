@@ -118,6 +118,18 @@ for the keyboard, and pkg-config, which GLFW uses to find them. Arch's
 | openSUSE | `wayland-devel libxkbcommon-devel pkg-config` |
 | Alpine | `wayland-dev libxkbcommon-dev` |
 
+`LINUX_BACKEND "drm"`, for a text console with no desktop ("A text console
+(DRM)" below), needs libdrm, GBM, EGL and OpenGL ES, and libatomic, which raylib
+links there:
+
+| | `LINUX_BACKEND "drm"` also needs |
+|---|---|
+| Debian, Ubuntu | `libdrm-dev libgbm-dev libegl-dev libgles-dev` |
+| Fedora | `libdrm-devel mesa-libgbm-devel mesa-libEGL-devel libatomic` |
+| Arch | nothing more: `mesa` brings them |
+| openSUSE | `libdrm-devel libgbm-devel Mesa-libEGL-devel Mesa-libGLESv2-devel libatomic1` |
+| Alpine | `libatomic`, as `mesa-dev` brings the rest |
+
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
 
@@ -212,8 +224,9 @@ a typo stops the build with a message that names the setting.
   it. `rtext` needs `rtextures`: dropping `rtextures` means dropping both.
 - `WINDOWS_BACKEND`, `LINUX_BACKEND`, `LINUX_WAYLAND` → the window backend raylib
   is built on. GLFW everywhere by default; `win32` is raylib's own native Windows
-  backend; RGFW is smaller and younger. Switching is safe in an existing build:
-  the choice is worked out again on every configure.
+  backend; RGFW is smaller and younger; `drm` runs on a text console with no
+  desktop at all ("A text console (DRM)"). Switching is safe in an existing
+  build: the choice is worked out again on every configure.
 - `DEV_COMPILER`, `DEV_LINKER` → your local compiler and linker, **debug preset
   only**. `release` and `web` build in directories of their own with the
   platform's defaults, so nothing here can change what you ship. `mold` is worth
@@ -424,6 +437,61 @@ the game:
 `__EMSCRIPTEN__` is defined by the compiler in every web build; raylib's own
 `PLATFORM_WEB` works as well.
 
+## A text console (DRM)
+
+`LINUX_BACKEND "drm"` builds the game for Linux with no desktop running at all.
+It takes over the whole screen of a text console through DRM/KMS, draws with
+OpenGL ES 2.0, and reads the keyboard, mouse and gamepads straight from
+`/dev/input`. That is how you develop on a machine with nothing but a console,
+and how you ship to one: a kiosk, an arcade cabinet, a Raspberry Pi.
+
+From a desktop, switch to a text console with **Ctrl+Alt+F3** (F2 to F6 work
+too; the key your desktop is on, usually F1 or F2, brings it back), log in,
+and:
+
+```bash
+make run          # compiles what changed, then plays on this console
+```
+
+It has to be a console: inside a desktop session the screen belongs to the
+desktop, and the game cannot take it. A desktop left running on another console
+is no problem.
+
+**Permissions.** The game opens `/dev/dri/card*` for the screen and
+`/dev/input/event*` for input, which a normal user cannot open. Either run it
+with sudo — build as yourself, then `sudo build/game`, because `sudo make` would
+leave files owned by root in `build/` — or add yourself to the groups that own
+those devices, once, then log out and back in:
+
+```bash
+sudo usermod -aG video,input,render $USER
+```
+
+`video` is the screen, `input` the keyboard, mouse and gamepads, and `render`
+the GPU on boards where it is a device of its own, like the Raspberry Pi. On
+Alpine, it is `doas addgroup $USER video`, and the same for `input`. On
+distributions with systemd, logging in at the console already lets you use the
+screen and gamepads, but never the keyboard or mouse, so `input` is still
+needed. While you are in `input`, every program you run can read every keyboard
+on the machine: on a shared computer, prefer sudo.
+
+**While it runs**, Ctrl+C does nothing — raylib switches the console's signal
+keys off — and Esc quits, as raylib's default exit key (`SetExitKey()` changes
+it). Should the game crash, the console can be left in raylib's settings:
+`reset` turns the echo of what you type back on, and `kbd_mode -u` brings back
+accented letters. The game runs full screen, in the display mode closest to the
+size given to `InitWindow()`; `InitWindow(0, 0, ...)` keeps the console's own.
+Shaders are GLSL ES 1.00 (`#version 100`), the same as on the web. `make rel`
+builds a release for the console like any other: run it from `build/release/`.
+
+With more than one graphics card, raylib tries `/dev/dri/card1`, then `card0`
+and `card2`. To pick one, add this to `CMakeLists.txt` after
+`add_subdirectory(thirdparty/raylib SYSTEM)`:
+
+```cmake
+target_compile_definitions(raylib PRIVATE DEFAULT_GRAPHIC_DEVICE_DRM="/dev/dri/card0")
+```
+
 ## raylib-cpp, if you want it
 
 [raylib-cpp](https://github.com/RobLoach/raylib-cpp), the C++ wrapper, is
@@ -576,7 +644,7 @@ What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 | The build uses | Where it lives in raylib |
 |---|---|
 | a target called `raylib` | `src/CMakeLists.txt`, `add_library(raylib ...)` |
-| `PLATFORM` values `Desktop`, `Web`, `RGFW`, `Win32` | `CMakeOptions.txt`, `enum_option(PLATFORM ...)` |
+| `PLATFORM` values `Desktop`, `Web`, `RGFW`, `Win32`, `DRM` | `CMakeOptions.txt`, `enum_option(PLATFORM ...)` |
 | the `GLFW_BUILD_WAYLAND` and `GLFW_BUILD_X11` options | `CMakeOptions.txt` |
 | every `SUPPORT_MODULE_*` inside an `#ifndef` | `src/config.h` |
 | raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, the three lines in `CMakeLists.txt` that add it can go |
@@ -585,8 +653,9 @@ With raylib's master of October 2026 (6.1-dev) and none of the patches,
 `CMakeLists.txt` needs no change: GLFW, Wayland, the web and Windows with all
 three backends build. The `Win32` patch is upstream there, so it can be
 dropped. The RGFW one is still needed on Linux — without it the link fails on
-`XRRFreeCrtcInfo` — and raylib's CMake still builds an X11-only GLFW unless
-told otherwise, so `LINUX_WAYLAND` still matters.
+`XRRFreeCrtcInfo` — and so is the DRM one: master still leaves the keys pressed
+during the game for the shell. raylib's CMake still builds an X11-only GLFW
+unless told otherwise, so `LINUX_WAYLAND` still matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.

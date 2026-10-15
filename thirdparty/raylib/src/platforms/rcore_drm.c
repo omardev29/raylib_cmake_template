@@ -1780,6 +1780,14 @@ static void InitKeyboard(void)
 // Restore default keyboard input
 static void RestoreKeyboard(void)
 {
+    // PATCHED (raylib_cmake_template): drop what was typed while the game ran.
+    // With a keyboard found in /dev/input, raylib reads keys from there and
+    // never from stdin, but the console queues them all the same; without this,
+    // the shell receives every one of them when the game quits, Enter included,
+    // so keys pressed in the game end up running a command. Upstream master
+    // still lacks it: keep it until a new raylib empties stdin itself.
+    tcflush(STDIN_FILENO, TCIFLUSH);
+
     // Reset to default keyboard settings
     tcsetattr(STDIN_FILENO, TCSANOW, &platform.defaultSettings);
 

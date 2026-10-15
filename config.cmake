@@ -37,12 +37,18 @@ set(RAYLIB_DISABLED_MODULES "")
 # The window backend raylib is built on, per system.
 #
 #   WINDOWS_BACKEND  glfw | win32 | rgfw
-#   LINUX_BACKEND    glfw | rgfw
+#   LINUX_BACKEND    glfw | rgfw | drm
 #
 # glfw is the default and the safe choice. win32 is raylib's own native backend,
 # with no GLFW at all. win32 and rgfw are smaller and younger: gamepads,
 # multi-monitor and the clipboard are thinner — fine for a simple game, wrong as
 # a default. On Linux, rgfw is X11-only.
+#
+# drm needs no desktop at all: the game takes over the screen of a text console
+# (Ctrl+Alt+F3) through DRM/KMS, draws with OpenGL ES 2.0 as on the web, and
+# reads the keyboard, mouse and gamepads from /dev/input. It does not run inside
+# a desktop session, and it needs permission to use those devices: README.md,
+# "A text console (DRM)".
 set(WINDOWS_BACKEND "glfw")
 set(LINUX_BACKEND "glfw")
 
