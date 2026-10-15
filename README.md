@@ -88,7 +88,7 @@ sudo pacman -S --needed base-devel cmake ninja \
     libx11 libxrandr libxinerama libxcursor libxi mesa
 ```
 
-**openSUSE Tumbleweed**:
+**openSUSE**, Tumbleweed and Leap 16:
 
 ```bash
 sudo zypper install gcc gcc-c++ make cmake ninja \
@@ -477,12 +477,14 @@ on the machine: on a shared computer, prefer sudo.
 
 **While it runs**, Ctrl+C does nothing — raylib switches the console's signal
 keys off — and Esc quits, as raylib's default exit key (`SetExitKey()` changes
-it). Should the game crash, the console can be left in raylib's settings:
-`reset` turns the echo of what you type back on, and `kbd_mode -u` brings back
-accented letters. The game runs full screen, in the display mode closest to the
-size given to `InitWindow()`; `InitWindow(0, 0, ...)` keeps the console's own.
-Shaders are GLSL ES 1.00 (`#version 100`), the same as on the web. `make rel`
-builds a release for the console like any other: run it from `build/release/`.
+it). If the game crashes, it cannot put the console back the way it found it:
+what you typed while it ran reaches the shell, Enter included, and the console
+stops echoing. `reset` turns the echo back on, and `kbd_mode -u` brings back
+accented letters. The game runs full screen, in the display mode closest to
+the size given to `InitWindow()`; `InitWindow(0, 0, ...)` keeps the console's
+own. Shaders are GLSL ES 1.00 (`#version 100`), the same as on the web.
+`make rel` builds a release for the console like any other: run it from
+`build/release/`.
 
 With more than one graphics card, raylib tries `/dev/dri/card1`, then `card0`
 and `card2`. To pick one, add this to `CMakeLists.txt` after
@@ -647,15 +649,14 @@ What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 | `PLATFORM` values `Desktop`, `Web`, `RGFW`, `Win32`, `DRM` | `CMakeOptions.txt`, `enum_option(PLATFORM ...)` |
 | the `GLFW_BUILD_WAYLAND` and `GLFW_BUILD_X11` options | `CMakeOptions.txt` |
 | every `SUPPORT_MODULE_*` inside an `#ifndef` | `src/config.h` |
-| raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, the three lines in `CMakeLists.txt` that add it can go |
+| raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, the `_GLFW_WAYLAND` block in `CMakeLists.txt` can go |
 
 With raylib's master of October 2026 (6.1-dev) and none of the patches,
 `CMakeLists.txt` needs no change: GLFW, Wayland, the web and Windows with all
 three backends build. The `Win32` patch is upstream there, so it can be
 dropped. The RGFW one is still needed on Linux — without it the link fails on
-`XRRFreeCrtcInfo` — and so is the DRM one: master still leaves the keys pressed
-during the game for the shell. raylib's CMake still builds an X11-only GLFW
-unless told otherwise, so `LINUX_WAYLAND` still matters.
+`XRRFreeCrtcInfo` — and raylib's CMake still builds an X11-only GLFW unless
+told otherwise, so `LINUX_WAYLAND` still matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.

@@ -18,9 +18,8 @@ The vendored copy is upstream commit `c2ea6a3` (25 April 2026), two days after
 the 6.0 release, without `examples/`, `projects/`, `tools/`, `logo/` and
 `build.zig`. Its only local changes are marked `PATCHED`
 (`grep -rn PATCHED thirdparty/raylib`): a `Win32` value for `PLATFORM` in
-`CMakeOptions.txt` and `cmake/LibraryConfigurations.cmake`, the X11 extension
-libraries RGFW needs to link on Linux, and, in `src/platforms/rcore_drm.c`,
-emptying the console's input when a DRM game quits.
+`CMakeOptions.txt` and `cmake/LibraryConfigurations.cmake`, and the X11
+extension libraries RGFW needs to link on Linux.
 
 ## raylib-cpp
 
