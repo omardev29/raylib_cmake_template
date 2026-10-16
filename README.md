@@ -475,16 +475,33 @@ screen and gamepads, but never the keyboard or mouse, so `input` is still
 needed. While you are in `input`, every program you run can read every keyboard
 on the machine: on a shared computer, prefer sudo.
 
-**While it runs**, Ctrl+C does nothing — raylib switches the console's signal
-keys off — and Esc quits, as raylib's default exit key (`SetExitKey()` changes
-it). If the game crashes, it cannot put the console back the way it found it:
-what you typed while it ran reaches the shell, Enter included, and the console
-stops echoing. `reset` turns the echo back on, and `kbd_mode -u` brings back
-accented letters. The game runs full screen, in the display mode closest to
-the size given to `InitWindow()`; `InitWindow(0, 0, ...)` keeps the console's
-own. Shaders are GLSL ES 1.00 (`#version 100`), the same as on the web.
-`make rel` builds a release for the console like any other: run it from
-`build/release/`.
+**While it runs**, Esc quits, as raylib's default exit key (`SetExitKey()`
+changes it), and Ctrl+C does nothing: raylib switches the console's signal keys
+off. Nothing you type reaches the shell, however the game ends: Esc, a crash or
+a kill. Next to the game, `ps` shows `raylib-console`, which minds the console
+for it: it takes what the keyboard types into the console, and puts the console
+back once the game is gone. It also lets only Ctrl+Alt+F1 to F12 switch to
+another console, because Alt and an arrow, or Alt and an F key, would switch
+too, and the game, which keeps the screen, would type its keys unseen into
+whatever runs there.
+
+**If the game hangs**, switch to another console with Ctrl+Alt+F2 and log in
+without seeing what you type: the frozen game keeps the screen until it ends.
+Then end it:
+
+```bash
+pkill -x game       # your GAME_NAME; pkill -9 -x game if it stays
+```
+
+or find it with `ps -u $USER` and `kill` its PID; `sudo pkill -x game` if it
+runs with sudo. Leave `raylib-console` alone, as it puts the console back on its
+way out — so not `kill -9 $(pidof game)`, which takes both. Ctrl+Alt+F3, or
+whichever console the game was on, takes you back to the shell.
+
+The game runs full screen, in the display mode closest to the size given to
+`InitWindow()`; `InitWindow(0, 0, ...)` keeps the console's own. Shaders are
+GLSL ES 1.00 (`#version 100`), the same as on the web. `make rel` builds a
+release for the console like any other: run it from `build/release/`.
 
 With more than one graphics card, raylib tries `/dev/dri/card1`, then `card0`
 and `card2`. To pick one, add this to `CMakeLists.txt` after
@@ -655,8 +672,10 @@ With raylib's master of October 2026 (6.1-dev) and none of the patches,
 `CMakeLists.txt` needs no change: GLFW, Wayland, the web and Windows with all
 three backends build. The `Win32` patch is upstream there, so it can be
 dropped. The RGFW one is still needed on Linux — without it the link fails on
-`XRRFreeCrtcInfo` — and raylib's CMake still builds an X11-only GLFW unless
-told otherwise, so `LINUX_WAYLAND` still matters.
+`XRRFreeCrtcInfo` — and so are those in `rcore_drm.c` ("A text console
+(DRM)"): raylib still puts the console back only on a clean exit, and leaves
+Ctrl+S stopping it. raylib's CMake still builds an X11-only GLFW unless told
+otherwise, so `LINUX_WAYLAND` still matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.

@@ -1731,6 +1731,155 @@ void ClosePlatform(void)
 }
 
 #if SUPPORT_SSH_KEYBOARD_RPI
+// PATCHED (raylib_cmake_template): a guard for the console. The keyboard types
+// into the console all along, even while raylib reads it through evdev, and
+// the console keeps what it gets for the next program to read it: the shell.
+// RestoreKeyboard() throws it away (the kernel does, as the keyboard mode is
+// set back), but it is an atexit() handler: after a crash, a kill or a hang,
+// the shell got everything typed during the game, Enter included. So
+// InitKeyboard() forks a small guard, which lives as long as the game and:
+// - reads the console all along, and hands it to ProcessKeyboard() through a
+//   socket; when raylib reads evdev instead, nobody takes it from there, and it
+//   is lost. Nothing is left for the shell, however the game ends. A program
+//   that reads stdin itself while the window is open gets nothing of it;
+// - lets the console switch only on Ctrl+Alt+F1 to F12. Alt and an arrow, or
+//   Alt and an F key, switch it too, and since the game keeps the screen, its
+//   keys would go unseen to the other console, to the shell logged in there;
+// - puts the console back when the game ends without RestoreKeyboard().
+#include <errno.h>
+#include <poll.h>
+#include <signal.h>
+#include <linux/keyboard.h>     // KG_CTRL
+#include <linux/tiocl.h>        // TIOCL_GETSHIFTSTATE
+#include <linux/vt.h>           // VT_SETMODE, VT_RELDISP
+#include <sys/prctl.h>
+#include <sys/signalfd.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+
+static int consoleGuardFd = -1;     // The game's end of the socket to the guard, -1 without a guard
+
+static void StartConsoleGuard(void)
+{
+    if ((consoleGuardFd != -1) || !isatty(STDIN_FILENO)) return;
+
+    // The guard reads the console through a file of its own, which never
+    // blocks: stdin's blocks again once RestoreKeyboard() is done with it.
+    // Without one, there is no guard, and raylib reads stdin as it always did
+    struct stat stdinStat = { 0 }, consoleStat = { 0 };
+    int consoleFd = open("/proc/self/fd/0", O_RDONLY | O_NONBLOCK | O_NOCTTY | O_CLOEXEC);
+    if (consoleFd == -1) consoleFd = open("/dev/tty", O_RDONLY | O_NONBLOCK | O_NOCTTY | O_CLOEXEC);
+    if (consoleFd == -1) return;
+    int fds[2] = { -1, -1 };
+    if ((fstat(STDIN_FILENO, &stdinStat) != 0) || (fstat(consoleFd, &consoleStat) != 0) ||
+        (stdinStat.st_rdev != consoleStat.st_rdev) ||
+        (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, fds) != 0))
+    {
+        close(consoleFd);
+        return;
+    }
+
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        // Nothing of the game's stays open in the guard but the console, so the
+        // screen and the input devices go with the game. The signals sent to
+        // end a game by hand leave the guard alone: it ends with the game
+        long maxFd = sysconf(_SC_OPEN_MAX);
+        if ((maxFd < 0) || (maxFd > 65536)) maxFd = 65536;
+        for (int fd = 3; fd < maxFd; fd++) if ((fd != fds[1]) && (fd != consoleFd)) close(fd);
+        const int ignoredSignals[] = { SIGINT, SIGQUIT, SIGTERM, SIGHUP, SIGTSTP, SIGTTIN, SIGTTOU };
+        for (int i = 0; i < (int)(sizeof(ignoredSignals)/sizeof(ignoredSignals[0])); i++) signal(ignoredSignals[i], SIG_IGN);
+        prctl(PR_SET_NAME, "raylib-console");
+
+        // The console to keep in place is stdin, or under sudo, which gives the
+        // game a pseudo-terminal of its own, the console on screen. With
+        // VT_PROCESS, the kernel asks the guard before switching it away
+        // (SIGUSR1), and tells it when it is back (SIGUSR2)
+        struct vt_mode defaultMode = { 0 };
+        int vtFd = STDIN_FILENO;
+        if (ioctl(vtFd, VT_GETMODE, &defaultMode) != 0) vtFd = open("/dev/tty0", O_RDWR | O_NOCTTY | O_CLOEXEC);
+        sigset_t switchSignals;
+        sigemptyset(&switchSignals);
+        sigaddset(&switchSignals, SIGUSR1);
+        sigaddset(&switchSignals, SIGUSR2);
+        int switchFd = -1;
+        if ((vtFd != -1) && (ioctl(vtFd, VT_GETMODE, &defaultMode) == 0) && (defaultMode.mode == VT_AUTO) &&
+            (sigprocmask(SIG_BLOCK, &switchSignals, NULL) == 0)) switchFd = signalfd(-1, &switchSignals, 0);
+        struct vt_mode askFirst = { .mode = VT_PROCESS, .relsig = SIGUSR1, .acqsig = SIGUSR2 };
+        if ((switchFd != -1) && (ioctl(vtFd, VT_SETMODE, &askFirst) != 0))
+        {
+            close(switchFd);
+            switchFd = -1;
+        }
+
+        bool cleanExit = false;     // Whether RestoreKeyboard() has already put the console back
+        for (;;)
+        {
+            struct pollfd polled[3] = {
+                { fds[1], POLLIN, 0 },
+                { consoleFd, POLLIN, 0 },
+                { switchFd, POLLIN, 0 }
+            };
+            if ((poll(polled, 3, -1) < 0) && (errno != EINTR)) break;
+
+            if (polled[1].revents != 0)
+            {
+                char keys[64] = { 0 };
+                ssize_t count = read(consoleFd, keys, sizeof(keys));
+                if (count > 0) send(fds[1], keys, count, MSG_DONTWAIT | MSG_NOSIGNAL);    // Lost when the game does not read them
+                else if ((count == 0) || ((errno != EAGAIN) && (errno != EINTR)))
+                {
+                    close(consoleFd);   // The console hung up
+                    consoleFd = -1;
+                }
+            }
+
+            if (polled[2].revents != 0)
+            {
+                struct signalfd_siginfo asked = { 0 };
+                if (read(switchFd, &asked, sizeof(asked)) == (ssize_t)sizeof(asked))
+                {
+                    if (asked.ssi_signo == SIGUSR1)
+                    {
+                        // A switch away: only with Ctrl held, as in Ctrl+Alt+F2, or when
+                        // the guard cannot tell, as that switch is how a hung game is left
+                        char shiftState = TIOCL_GETSHIFTSTATE;
+                        const int ctrlKeys = (1 << KG_CTRL) | (1 << KG_CTRLL) | (1 << KG_CTRLR);
+                        bool allowed = (ioctl(vtFd, TIOCLINUX, &shiftState) != 0) || ((shiftState & ctrlKeys) != 0);
+                        ioctl(vtFd, VT_RELDISP, allowed? 1 : 0);
+                    }
+                    else ioctl(vtFd, VT_RELDISP, VT_ACKACQ);
+                }
+            }
+
+            if (polled[0].revents != 0)
+            {
+                char byte = 0;
+                ssize_t count = recv(fds[1], &byte, 1, 0);
+                if (count == 1) cleanExit = true;
+                if ((count >= 0) || ((errno != EAGAIN) && (errno != EINTR))) break;     // A clean exit, or the game is gone
+            }
+        }
+
+        if (switchFd != -1) ioctl(vtFd, VT_SETMODE, &defaultMode);
+        if (!cleanExit)
+        {
+            // The game is gone without RestoreKeyboard(): do what it would have done
+            tcflush(STDIN_FILENO, TCIFLUSH);
+            tcsetattr(STDIN_FILENO, TCSANOW, &platform.defaultSettings);
+            fcntl(STDIN_FILENO, F_SETFL, platform.defaultFileFlags);
+            ioctl(STDIN_FILENO, KDSKBMODE, platform.defaultKeyboardMode);
+        }
+        _exit(0);
+    }
+
+    close(consoleFd);
+    close(fds[1]);
+    if (pid > 0) consoleGuardFd = fds[0];
+    else close(fds[0]);
+}
+
 // Initialize Keyboard system (using standard input)
 static void InitKeyboard(void)
 {
@@ -1748,6 +1897,10 @@ static void InitKeyboard(void)
     // NOTE: ISIG controls if ^C and ^Z generate break signals or not
     FLAG_CLEAR(keyboardNewSettings.c_lflag, ICANON | ECHO | ISIG);
     //FLAG_CLEAR(keyboardNewSettings.c_iflag, ISTRIP | INLCR | ICRNL | IGNCR | IXON | IXOFF);
+    // PATCHED (raylib_cmake_template): no flow control either. Ctrl+S, pressed as
+    // a game key, stopped the console's output, and the game with it at its next
+    // printf() or TraceLog(), frozen on screen as if it had hung
+    FLAG_CLEAR(keyboardNewSettings.c_iflag, IXON);
     keyboardNewSettings.c_cc[VMIN] = 1;
     keyboardNewSettings.c_cc[VTIME] = 0;
 
@@ -1775,6 +1928,8 @@ static void InitKeyboard(void)
 
     // Register keyboard restore when program finishes
     atexit(RestoreKeyboard);
+
+    StartConsoleGuard();    // PATCHED (raylib_cmake_template): see StartConsoleGuard()
 }
 
 // Restore default keyboard input
@@ -1786,6 +1941,14 @@ static void RestoreKeyboard(void)
     // Reconfigure keyboard to default mode
     fcntl(STDIN_FILENO, F_SETFL, platform.defaultFileFlags);
     ioctl(STDIN_FILENO, KDSKBMODE, platform.defaultKeyboardMode);
+
+    // PATCHED (raylib_cmake_template): a clean exit, so the guard can leave
+    if (consoleGuardFd != -1)
+    {
+        send(consoleGuardFd, "", 1, MSG_NOSIGNAL);
+        close(consoleGuardFd);
+        consoleGuardFd = -1;
+    }
 }
 
 // Process keyboard inputs
@@ -1798,7 +1961,14 @@ static void ProcessKeyboard(void)
     char keysBuffer[MAX_KEYBUFFER_SIZE] = { 0 };    // Max keys to be read at a time
 
     // Read availables keycodes from stdin
-    bufferByteCount = read(STDIN_FILENO, keysBuffer, MAX_KEYBUFFER_SIZE);     // POSIX system call
+    // PATCHED (raylib_cmake_template): from the guard when there is one, as the guard reads stdin
+    int keysFd = (consoleGuardFd != -1)? consoleGuardFd : STDIN_FILENO;
+    bufferByteCount = read(keysFd, keysBuffer, MAX_KEYBUFFER_SIZE);     // POSIX system call
+    if ((bufferByteCount == 0) && (keysFd == consoleGuardFd))   // The guard is gone: back to stdin
+    {
+        close(consoleGuardFd);
+        consoleGuardFd = -1;
+    }
 
     // Reset pressed keys array (it will be filled below)
     for (int i = 0; i < MAX_KEYBOARD_KEYS; i++)
