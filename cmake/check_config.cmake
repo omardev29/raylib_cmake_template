@@ -45,7 +45,7 @@ if("rtextures" IN_LIST RAYLIB_DISABLED_MODULES AND NOT "rtext" IN_LIST RAYLIB_DI
 endif()
 
 expect_one_of(WINDOWS_BACKEND glfw win32 rgfw)
-expect_one_of(LINUX_BACKEND glfw rgfw)
+expect_one_of(LINUX_BACKEND glfw rgfw drm)
 expect_one_of(LINUX_WAYLAND ON OFF)
 # Each valid on its own, together a contradiction: RGFW on Linux is X11-only, so
 # the build would quietly produce X11 while config.cmake said Wayland.

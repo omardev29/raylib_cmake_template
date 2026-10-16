@@ -102,6 +102,8 @@ elseif(WIN32)
 elseif(UNIX AND NOT APPLE) # Linux and the BSDs
   if(LINUX_BACKEND STREQUAL "rgfw")
     set(PLATFORM "RGFW")
+  elseif(LINUX_BACKEND STREQUAL "drm")
+    set(PLATFORM "DRM") # a text console, no desktop: README.md, "A text console (DRM)"
   endif()
   # GLFW's display server: native Wayland, or X11 — which a Wayland desktop
   # then runs through XWayland.
@@ -121,8 +123,14 @@ add_subdirectory(thirdparty/raylib SYSTEM)
 
 # raylib's CMake tells raylib's own sources about X11 but never about Wayland,
 # so its Wayland code — the HiDPI fix, GetWindowHandle() — would be left out.
-if(GLFW_BUILD_WAYLAND)
+# That code includes wayland-client.h, which some distributions keep outside
+# the default include path (openSUSE: /usr/include/wayland); pkg-config, which
+# GLFW's Wayland build needs anyway, says where. GLFW ("Desktop") only.
+if(GLFW_BUILD_WAYLAND AND PLATFORM STREQUAL "Desktop")
   target_compile_definitions(raylib PRIVATE _GLFW_WAYLAND)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(WAYLAND_CLIENT REQUIRED wayland-client)
+  target_include_directories(raylib SYSTEM PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIRS})
 endif()
 
 # RAYLIB_DISABLED_MODULES. Every switch in raylib 6.0's config.h sits inside an
