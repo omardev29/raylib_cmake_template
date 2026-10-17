@@ -246,11 +246,29 @@ endif()
 
 # cmake --build --preset debug --target run
 # builds whatever changed, then starts the game. On the web it serves the page
-# with emrun, which comes with the emsdk, and opens your browser.
+# with emrun, which comes with the emsdk, and opens your browser. A Windows
+# build made on Linux starts under Wine, when there is one.
 if(EMSCRIPTEN)
   add_custom_target(run COMMAND emrun "$<TARGET_FILE:${GAME_NAME}>"
     USES_TERMINAL VERBATIM)
   add_dependencies(run ${GAME_NAME})
+elseif(WIN32 AND NOT CMAKE_HOST_WIN32)
+  find_program(WINE_PROGRAM wine)
+  if(WINE_PROGRAM)
+    # WINEDEBUG keeps Wine's own chatter down to its errors. WINEDLLOVERRIDES
+    # skips the offer Wine makes the first time, to install .NET and a web
+    # engine: a raylib game needs neither.
+    add_custom_target(run
+      COMMAND "${CMAKE_COMMAND}" -E env WINEDEBUG=fixme-all "WINEDLLOVERRIDES=mscoree,mshtml="
+              "${WINE_PROGRAM}" "$<TARGET_FILE:${GAME_NAME}>"
+      WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL VERBATIM)
+    add_dependencies(run ${GAME_NAME})
+  else()
+    add_custom_target(run
+      COMMAND "${CMAKE_COMMAND}" -E echo "Playing the Windows build here needs Wine. Install it, delete build/windows/ and try again."
+      COMMAND "${CMAKE_COMMAND}" -E false
+      VERBATIM)
+  endif()
 else()
   add_custom_target(run COMMAND ${GAME_NAME}
     WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL VERBATIM)

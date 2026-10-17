@@ -63,8 +63,9 @@ set(LINUX_BACKEND "glfw")
 #        SetWindowPosition() do not work there.
 set(LINUX_WAYLAND OFF)
 
-# Your machine, for the debug preset only. The release and web presets always
-# build with the platform's defaults, so nothing here can change what you ship.
+# Your machine, for the debug preset only. The release, web and windows presets
+# always build with the platform's defaults, so nothing here can change what
+# you ship.
 #
 #   DEV_COMPILER  default | clang | gcc | mingw | msvc
 #                 mingw looks for MSYS2's x86_64-w64-mingw32-gcc before a plain

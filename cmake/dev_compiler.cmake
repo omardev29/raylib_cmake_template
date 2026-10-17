@@ -10,8 +10,8 @@
 # that already has a compiler locked in stops with a message, rather than
 # quietly carrying on with the old one.
 
-# Release and web always build with the platform's default, and a toolchain
-# file (the web's) brings its own compiler.
+# Release, web and windows always build with the platform's default, and a
+# toolchain file (the web's, the windows one's) brings its own compiler.
 if(PRODUCTION_BUILD OR CMAKE_TOOLCHAIN_FILE)
   return()
 endif()
@@ -28,13 +28,14 @@ endif()
 
 # mingw and msvc only exist on Windows. A Linux box with the MinGW cross
 # compiler installed would otherwise find it and quietly start producing .exe
-# files. Before project() these variables describe the machine you are on, not
-# the target. MSYS and CYGWIN as well as WIN32, because in MSYS2's own shell
-# CMake sets MSYS and not WIN32 — in the very shell that ships the compiler.
+# files in the debug build; `make win` is the way to those. Before project()
+# these variables describe the machine you are on, not the target. MSYS and
+# CYGWIN as well as WIN32, because in MSYS2's own shell CMake sets MSYS and not
+# WIN32 — in the very shell that ships the compiler.
 if(DEV_COMPILER MATCHES "^(mingw|msvc)$" AND NOT (WIN32 OR MSYS OR CYGWIN))
   message(FATAL_ERROR
     "DEV_COMPILER ${DEV_COMPILER} only makes sense on Windows. Here, use clang, "
-    "gcc or default.")
+    "gcc or default — and `make win` for a Windows build.")
 endif()
 
 # Several names per compiler, because which one exists depends on how it was

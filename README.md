@@ -2,7 +2,7 @@
 
 A raylib starter that gets out of your way. **raylib, statically linked, a CMake
 build, and one short config file** — and three targets you build from your own
-machine: **Windows, Linux and the web.**
+machine: **Windows, Linux and the web**, with Windows buildable from Linux too.
 
 There is no framework layer here. You write ordinary raylib:
 
@@ -45,6 +45,8 @@ cmake --build --preset debug --target run
 | `make rel` | compile the build you ship, into `build/release/` |
 | `make web` | compile for the browser, into `build/web/` |
 | `make serve` | play the web build: emrun serves it and opens your browser |
+| `make win` | on Linux, compile the Windows build you ship, into `build/windows/` |
+| `make win-run` | play that Windows build here, under Wine |
 | `make clean` | delete every build |
 
 Every recipe is a single CMake command, so the `Makefile` doubles as a cheat
@@ -129,6 +131,18 @@ links there:
 | Arch | nothing more: `mesa` brings them |
 | openSUSE | `libdrm-devel libgbm-devel Mesa-libEGL-devel Mesa-libGLESv2-devel libatomic1` |
 | Alpine | `libatomic`, as `mesa-dev` brings the rest |
+
+`make win`, the Windows build made on Linux ("Windows, from Linux" below),
+needs MinGW-w64 — GCC built to make Windows programs — and none of the X11
+packages above. `make win-run` also needs Wine, to start what it built:
+
+| | `make win` needs | `make win-run` also needs |
+|---|---|---|
+| Debian, Ubuntu | `g++-mingw-w64-x86-64` | `wine` |
+| Fedora | `mingw64-gcc-c++ mingw64-winpthreads-static` | `wine` |
+| Arch | `mingw-w64-gcc` | `wine`, from the `multilib` repository |
+| openSUSE | `mingw64-cross-gcc-c++` | `wine` |
+| Alpine | `mingw-w64-gcc` | `wine` |
 
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
@@ -229,8 +243,8 @@ a typo stops the build with a message that names the setting.
   (DRM)"). Switching is safe in an existing build: the choice is worked out
   again on every configure.
 - `DEV_COMPILER`, `DEV_LINKER` → your local compiler and linker, **debug preset
-  only**. `release` and `web` build in directories of their own with the
-  platform's defaults, so nothing here can change what you ship. `mold` is worth
+  only**. `release`, `web` and `windows` build in directories of their own with
+  the platform's defaults, so nothing here can change what you ship. `mold` is worth
   having on PATH on Linux; it makes the link almost free. Going back to
   `DEV_COMPILER "default"` needs a `make clean` — CMake cannot un-pick a
   compiler, and the build tells you so instead of quietly keeping the old one.
@@ -293,8 +307,8 @@ halves of that, and it is one line at the top of `main()`:
 
 ## The three targets
 
-**Linux and Windows** are the same command on each machine. There is no
-cross-compilation here: you build Windows on Windows.
+**Linux and Windows** are the same command on each machine — and Linux can
+build the Windows one too, with `make win` ("Windows, from Linux", below).
 
 ```bash
 make rel          # or: cmake --preset release && cmake --build --preset release
@@ -320,6 +334,48 @@ Any static file server will do instead of emrun
 (`python3 -m http.server 8000 --directory build/web`). Do not open the `.html`
 from the filesystem: the browser will refuse to load the `.data` file next to
 it.
+
+### Windows, from Linux
+
+On Linux, with MinGW-w64 installed ("Setting up"):
+
+```bash
+make win          # or: cmake --preset windows && cmake --build --preset windows
+make win-run      # play it here, under Wine
+```
+
+`build/windows/` then holds `game.exe` and its `resources/`: the same folder
+`make rel` makes on Windows with MinGW, with no console window and nothing to
+install on the player's machine, ready to zip and ship.
+
+How it works: the `windows` preset names a toolchain file,
+`cmake/windows_cross.cmake`, which CMake reads before anything else. It says
+three things. The target system is Windows, on x86-64. The compiler is
+`x86_64-w64-mingw32-g++`, GCC built to make Windows programs, which brings its
+own copy of Windows' headers and libraries. And libraries are looked for in
+MinGW-w64's folder, never in Linux's `/usr/lib`. From there on CMake configures
+as it would on Windows with MinGW — `WIN32` and `MINGW` are set — so the rest
+of `CMakeLists.txt` needs nothing of its own: raylib builds its Windows backend
+(`WINDOWS_BACKEND`), and the release is `-static`, has no console window and
+gets `resources/` copied next to it. What comes out is a native Windows
+program; Wine only comes in for `make win-run`.
+
+Worth knowing:
+
+- **Release only.** There is no Windows debug build from Linux. Debug on Linux,
+  where the game is the same code, or on Windows.
+- **Wine is not Windows.** `make win-run` is a quick look that the `.exe` starts
+  and finds its assets. Try it on a real Windows machine before you ship it.
+  The first run sets Wine up in `~/.wine`, which takes a moment.
+- **64-bit only**, which is what every Windows PC of the last decade runs.
+- **Threads.** Debian and Ubuntu install MinGW-w64 twice, once per thread
+  model. The toolchain file takes `-posix`, because `-win32` has `std::thread`
+  only from GCC 13 on, and Debian 12 ships GCC 12. The `.exe` needs no extra
+  DLL either way.
+- **Libraries you add** need a Windows build too. One compiled with the game,
+  the way "Adding a library" does it, just works. A prebuilt one has to be
+  built for MinGW-w64 (Fedora packages many, as `mingw64-...`), and the
+  toolchain file looks for it in MinGW-w64's folder.
 
 ### How optimized is a release build?
 
@@ -622,7 +678,7 @@ only things that are not negotiable:
 | raylib | backend, Wayland, disabled modules, raylib's warnings | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
-| run | the `run` target | Can go; then take `run` and `serve` out of the Makefile too. |
+| run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve` and `win-run` out of the Makefile too. |
 
 Some things look removable and are not:
 
@@ -752,14 +808,15 @@ your code now.
 ```
 config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
-CMakePresets.json       the three builds: debug, release and web
-cmake/                  check_config.cmake, and DEV_COMPILER and DEV_LINKER
+CMakePresets.json       the four builds: debug, release, web and windows
+cmake/                  check_config.cmake, DEV_COMPILER and DEV_LINKER, and
+                        windows_cross.cmake, for the Windows build from Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
 include/                your headers
 resources/              your assets
 thirdparty/raylib/      raylib 6.2, plus the changes marked PATCHED
 thirdparty/raylib-cpp/  raylib-cpp's headers, there if you want them
-Makefile                the six commands above
+Makefile                the eight commands above
 ```
 
 Adding a source file needs **no CMake edit**: `src/` is globbed recursively, and
@@ -787,8 +844,14 @@ at each step. The parts worth slowing down for:
 - **Generator expressions.** `$<CONFIG:Debug>` picks the MSVC runtime per
   configuration, `$<BOOL:...>` turns `ON`/`OFF` into the `1`/`0` your code
   sees, and `$<TARGET_FILE_DIR:...>` is where the executable ends up.
-- **Presets.** `CMakePresets.json` is the three builds; each gets its own
-  directory, so switching between them never rebuilds the others.
+- **Presets.** `CMakePresets.json` is the four builds; each gets its own
+  directory, so switching between them never rebuilds the others. The
+  `windows` one has a `condition` that hides it on Windows, where it has
+  nothing to do.
+- **Toolchain files.** The web and windows presets each name one: a file CMake
+  reads before `project()`, which says what system the build is for and which
+  compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is
+  short enough to read in a minute.
 
 ## What this is not
 
