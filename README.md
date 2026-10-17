@@ -333,9 +333,10 @@ As far as a binary goes while it still runs on any machine of its kind:
 | Symbols stripped | yes (not on macOS) | no `.pdb` in a release | yes |
 | `assert()` | off | off | off |
 
-raylib and GLFW get all of it too, not only your code. Measured on Linux,
-applying it to GLFW as well and stripping the symbols takes the release from
-586 KB to 529 KB; on the web, full LTO takes the `.wasm` from 138 KB to 121 KB.
+raylib and GLFW get all of it too, not only your code. Measured on Linux, a
+plain CMake Release build of this template is 1,225 KB once stripped, and the
+`release` preset's is 451 KB; on the web, full LTO takes the `.wasm` from 127 KB
+to 110 KB.
 
 What is deliberately left off, because each one trades something away:
 
@@ -359,7 +360,7 @@ to yield; raylib's `WindowShouldClose()` does that with `emscripten_sleep()`, an
 ASYNCIFY is what makes a sleep inside a normal function possible. It instruments
 every function that could be on the stack when that happens — most of them — and
 you pay in download size and a little speed, whether or not anything suspends.
-Measured with this template: the `.wasm` is 121 KB with ASYNCIFY and 91 KB
+Measured with this template: the `.wasm` is 110 KB with ASYNCIFY and 83 KB
 without, a third more.
 
 That trade is right for a template whose point is plain raylib. When the
