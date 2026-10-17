@@ -660,19 +660,72 @@ audit left open: raylib says it addressed "most" of what the audit found. A face
 of more than 5 vertices is still dropped, as raylib 6.2 does, so export OBJ
 models triangulated.
 
-To move to a newer raylib:
+To move to a newer raylib, with your work committed:
 
-1. Download it: a release from <https://github.com/raysan5/raylib/releases>, or
-   any commit.
-2. **Delete `thirdparty/raylib/` first**, then copy the new one in, without the
-   folders and files above. Copying over the old folder leaves behind every
-   file the new version removed.
-3. For each `PATCHED` block, check whether the new raylib still needs it, and
-   re-apply it if so.
-4. Build every preset you use — `make`, `make rel`, `make web` — and run them.
-5. Update raylib-cpp too, once a release for the new raylib is out. It is
-   header-only, so that is copying `include/`. Its version does not have to
-   match raylib's: the 6.0.3 here works with raylib 6.2.
+1. **Save the patches.** Download the raylib this copy came from (6.2, above),
+   delete `thirdparty/raylib/` and copy it in, the way step 2 does with the new
+   one. What `git diff` shows then is the `PATCHED` blocks and nothing else:
+   save it the other way round, as the changes to make.
+
+   ```bash
+   git diff --stat thirdparty/raylib     # only the files in the table above
+   git diff -R --output=raylib-patches.diff thirdparty/raylib
+   ```
+
+2. **Copy the new raylib in.** Download it: a release from
+   <https://github.com/raysan5/raylib/releases>, or any commit. **Delete
+   `thirdparty/raylib/` first**, then copy the new one in, without the folders
+   and files above. Copying over the old folder leaves behind every file the
+   new version removed.
+3. **See which patches it still needs**, on its code as it comes: the list
+   below says how to tell, for each one. raylib's `CHANGELOG` names what a
+   release fixed.
+4. **Re-apply those.** `--exclude` leaves out a file whose patch is no longer
+   needed, one `--exclude` per file (`rcore_web.c` is only an example):
+
+   ```bash
+   git apply --reject --exclude="*rcore_web.c" raylib-patches.diff
+   ```
+
+   What still fits is applied. Each part that does not is left next to its file
+   as a `.rej`, to redo by hand, or to drop if the new raylib no longer needs
+   it. Then delete the `.rej` files and `raylib-patches.diff`.
+5. Build every preset you use — `make`, `make rel`, `make web` — and run them.
+   If one no longer builds, the last table in this section says what
+   `CMakeLists.txt` relies on.
+6. Bring this section up to date — the version, the table, the list below — and
+   `THIRD_PARTY_LICENSES.md`.
+7. Update raylib-cpp too, once a release for the new raylib is out. It is
+   header-only, so that is copying `include/`, and its patch moves the same
+   way, with `thirdparty/raylib-cpp/include` in place of `thirdparty/raylib`.
+   Its version does not have to match raylib's: the 6.0.3 here works with
+   raylib 6.2.
+
+How to tell whether the new raylib still needs each patch:
+
+- **Xrandr** (`cmake/LibraryConfigurations.cmake`): still needed if, on Linux,
+  with `LINUX_BACKEND` set to `"rgfw"`, `make` fails to link on `XRR…` symbols.
+- **The console guard** (`src/platforms/rcore_drm.c`): run a DRM build in a
+  text console, type something while it runs, and kill it with `kill -9` from
+  another console or over SSH. Still needed if what you typed reaches the
+  shell, or if Ctrl+S freezes the game.
+- **tinyobj** (`src/external/tinyobj_loader_c.h`), in `parseLine()`, one part
+  at a time:
+  - the bound on the face loop: still needed if nothing checks `num_f` before
+    `f[num_f] = vi;`;
+  - the early drop of a long face: still needed if the face code sets
+    `command->type = COMMAND_F;` before a `return 0`;
+  - the `COMMAND_EMPTY` at the top: still needed if
+    `if (p_len > 4095) return 0;` comes before `command->type = COMMAND_EMPTY;`.
+- **Automation events** (`src/rcore.c`): still needed if `PlayAutomationEvent()`
+  uses `event.params[0]` as an index without checking it first.
+- **`OpenURL()` on the web** (`src/platforms/rcore_web.c`): still needed if its
+  `OpenURL()` does not check for `http://` and `https://`.
+- **raylib-cpp's `ChangeDirectory()`** (`include/Functions.hpp`): still needed if
+  it returns raylib's result as it is, while raylib returns 0 on success.
+
+These decide, not `git apply`: a patch can apply cleanly to code that no longer
+needs it, and fail on code that still does.
 
 What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 
