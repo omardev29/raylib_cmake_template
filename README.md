@@ -145,8 +145,14 @@ brings all of it:
 | openSUSE | `mingw64-cross-gcc-c++` |
 | Alpine | `mingw-w64-gcc` |
 
+On a Linux running on ARM or RISC-V, the same package does it where the
+distribution builds it for that processor: Debian, Ubuntu, Fedora and openSUSE
+do for 64-bit ARM, and Debian 13, Ubuntu and openSUSE Tumbleweed for RISC-V.
+Arch Linux ARM and Alpine do not.
+
 `make win-run`, which starts that build under Wine, needs the `wine` package,
-which all of them have.
+which all of them have for an x86-64 PC (for ARM and RISC-V, see "Windows,
+from Linux").
 
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
@@ -371,7 +377,14 @@ Worth knowing:
 - **Wine is not Windows.** `make win-run` is a quick look that the `.exe` starts
   and finds its assets. Try it on a real Windows machine before you ship it.
   The first run sets Wine up in `~/.wine`, which takes a moment.
-- **64-bit only**, which is what every Windows PC of the last decade runs.
+- **64-bit x86 only**, which is what every Windows PC of the last decade runs;
+  Windows 11 on ARM runs it too, through its x86-64 emulation.
+- **On an ARM or RISC-V Linux**, `make win` works just the same where the
+  distribution has MinGW-w64 for it ("Setting up"): the compiler runs on that
+  processor and still writes the x86-64 `.exe`, byte for byte the one the same
+  compiler writes on an x86-64 PC. `make win-run` does not: Wine runs Windows
+  programs built for the processor it runs on, so there an x86-64 one needs an
+  x86 emulator alongside Wine, such as Box64 (or FEX, on ARM).
 - **Threads.** Debian and Ubuntu package MinGW-w64 once per thread model,
   `-win32` and `-posix`. "Setting up" installs `-posix`, and the toolchain file
   takes it even when both are there, because `-win32` has `std::thread`
