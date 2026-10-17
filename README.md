@@ -224,9 +224,10 @@ a typo stops the build with a message that names the setting.
   it. `rtext` needs `rtextures`: dropping `rtextures` means dropping both.
 - `WINDOWS_BACKEND`, `LINUX_BACKEND`, `LINUX_WAYLAND` → the window backend raylib
   is built on. GLFW everywhere by default; `win32` is raylib's own native Windows
-  backend; RGFW is smaller and younger; `drm` runs on a text console with no
-  desktop at all ("A text console (DRM)"). Switching is safe in an existing
-  build: the choice is worked out again on every configure.
+  backend, still young (`config.cmake` says what it lacks); RGFW is smaller and
+  younger; `drm` runs on a text console with no desktop at all ("A text console
+  (DRM)"). Switching is safe in an existing build: the choice is worked out
+  again on every configure.
 - `DEV_COMPILER`, `DEV_LINKER` → your local compiler and linker, **debug preset
   only**. `release` and `web` build in directories of their own with the
   platform's defaults, so nothing here can change what you ship. `mold` is worth
@@ -635,28 +636,40 @@ Some things look removable and are not:
 
 ## Updating raylib
 
-`thirdparty/raylib/` is raylib's own source, copied in. It is raylib 6.0 —
-precisely upstream commit `c2ea6a3` (25 April 2026), two days after the 6.0
-release, so it carries a handful of post-release fixes — without `examples/`,
-`projects/`, `tools/`, `logo/` and `build.zig`. Its only local changes are
-marked `PATCHED`:
+`thirdparty/raylib/` is raylib's own source, copied in: raylib 6.2, as tagged on
+15 October 2026 (`02566453`), without `.github/`, `examples/`, `projects/`,
+`tools/`, `logo/`, `build.zig` and `build.zig.zon`. Its only local changes, and
+the one in raylib-cpp, are marked `PATCHED`:
 
 ```bash
-grep -rn PATCHED thirdparty/raylib
+grep -rn PATCHED thirdparty
 ```
+
+| File | The change | It can go once raylib |
+|---|---|---|
+| `cmake/LibraryConfigurations.cmake` | links Xrandr, without which RGFW does not link on Linux | links it itself |
+| `src/platforms/rcore_drm.c` | the console guard, and no flow control ("A text console (DRM)") | restores the console after a crash too, and turns flow control off |
+| `src/external/tinyobj_loader_c.h` | drops an OBJ face of more than 16 vertices, which overflowed the stack | bounds that loop |
+| `src/rcore.c` | drops a replayed automation event whose values are out of range | checks them in `PlayAutomationEvent()` |
+| `src/platforms/rcore_web.c` | `OpenURL()` on the web refuses quotes and anything but `http(s)://`, as it does on the desktop | does the same in this backend |
+| raylib-cpp's `Functions.hpp` | `raylib::ChangeDirectory()` returns true on success again | raylib-cpp follows raylib 6.2 |
+
+The tinyobj, automation and `OpenURL()` ones close what raylib 6.2's security
+audit left open: raylib says it addressed "most" of what the audit found.
 
 To move to a newer raylib:
 
 1. Download it: a release from <https://github.com/raysan5/raylib/releases>, or
    any commit.
 2. **Delete `thirdparty/raylib/` first**, then copy the new one in, without the
-   folders above. Copying over the old folder leaves behind every file the new
-   version removed.
+   folders and files above. Copying over the old folder leaves behind every
+   file the new version removed.
 3. For each `PATCHED` block, check whether the new raylib still needs it, and
    re-apply it if so.
 4. Build every preset you use — `make`, `make rel`, `make web` — and run them.
-5. Update raylib-cpp to its matching release: its version follows raylib's
-   (6.0.x is for raylib 6.0). It is header-only, so that is copying `include/`.
+5. Update raylib-cpp too, once a release for the new raylib is out. It is
+   header-only, so that is copying `include/`. Its version does not have to
+   match raylib's: the 6.0.3 here works with raylib 6.2.
 
 What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 
@@ -668,14 +681,8 @@ What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 | every `SUPPORT_MODULE_*` inside an `#ifndef` | `src/config.h` |
 | raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, the `_GLFW_WAYLAND` block in `CMakeLists.txt` can go |
 
-With raylib's master of October 2026 (6.1-dev) and none of the patches,
-`CMakeLists.txt` needs no change: GLFW, Wayland, the web and Windows with all
-three backends build. The `Win32` patch is upstream there, so it can be
-dropped. The RGFW one is still needed on Linux — without it the link fails on
-`XRRFreeCrtcInfo` — and so are those in `rcore_drm.c` ("A text console
-(DRM)"): raylib still puts the console back only on a clean exit, and leaves
-Ctrl+S stopping it. raylib's CMake still builds an X11-only GLFW unless told
-otherwise, so `LINUX_WAYLAND` still matters.
+raylib's CMake still builds an X11-only GLFW unless told otherwise, so
+`LINUX_WAYLAND` still matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.
@@ -690,7 +697,7 @@ cmake/                  check_config.cmake, and DEV_COMPILER and DEV_LINKER
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
 include/                your headers
 resources/              your assets
-thirdparty/raylib/      raylib 6.0, plus the changes marked PATCHED
+thirdparty/raylib/      raylib 6.2, plus the changes marked PATCHED
 thirdparty/raylib-cpp/  raylib-cpp's headers, there if you want them
 Makefile                the six commands above
 ```

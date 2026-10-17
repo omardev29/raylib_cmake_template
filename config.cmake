@@ -40,9 +40,10 @@ set(RAYLIB_DISABLED_MODULES "")
 #   LINUX_BACKEND    glfw | rgfw | drm
 #
 # glfw is the default and the safe choice. win32 is raylib's own native backend,
-# with no GLFW at all. win32 and rgfw are smaller and younger: gamepads,
-# multi-monitor and the clipboard are thinner — fine for a simple game, wrong as
-# a default. On Linux, rgfw is X11-only.
+# with no GLFW at all, and still young: in raylib 6.2 it has no gamepads, no
+# GetKeyPressed() or GetCharPressed(), no exclusive fullscreen and no monitor
+# details — fine for a simple game, wrong as a default. rgfw is smaller than
+# glfw and close behind it; on Linux, it is X11-only.
 #
 # drm needs no desktop at all: the game takes over the screen of a text console
 # (Ctrl+Alt+F3) through DRM/KMS, draws with OpenGL ES 2.0 as on the web, and

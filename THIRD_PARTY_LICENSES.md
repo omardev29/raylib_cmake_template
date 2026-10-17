@@ -10,17 +10,18 @@ zlib/libpng license. Copyright (c) 2013-2026 Ramon Santamaria (@raysan5).
 The full text is in `thirdparty/raylib/LICENSE`.
 
 raylib bundles its own dependencies in `thirdparty/raylib/src/external/` —
-GLFW, RGFW, miniaudio, the stb libraries, dr_libs, cgltf, par_shapes, qoi, qoa
-and a few more — each under a permissive license of its own (zlib/libpng, MIT,
-MIT-0, Apache-2.0 or public domain), whose notice is in its own file.
+GLFW, RGFW, miniaudio, the stb libraries, dr_libs, cgltf, par_shapes, qoi, qoa,
+pep and a few more — each under a permissive license of its own (zlib/libpng,
+MIT, MIT-0, Apache-2.0, CC0 or public domain), whose notice is in its own file.
 
-The vendored copy is upstream commit `c2ea6a3` (25 April 2026), two days after
-the 6.0 release, without `examples/`, `projects/`, `tools/`, `logo/` and
-`build.zig`. Its only local changes are marked `PATCHED`
-(`grep -rn PATCHED thirdparty/raylib`): a `Win32` value for `PLATFORM` in
-`CMakeOptions.txt` and `cmake/LibraryConfigurations.cmake`, the X11 extension
-libraries RGFW needs to link on Linux, and, in `src/platforms/rcore_drm.c`, a
-guard for the text console and no flow control while the game runs.
+The vendored copy is raylib 6.2, as tagged on 15 October 2026 (`02566453`),
+without `.github/`, `examples/`, `projects/`, `tools/`, `logo/`, `build.zig` and
+`build.zig.zon`. Its only local changes are marked `PATCHED`
+(`grep -rn PATCHED thirdparty/raylib`): the Xrandr library RGFW needs to link
+on Linux; in `src/platforms/rcore_drm.c`, a guard for the text console and no
+flow control while the game runs; and three fixes for what raylib's security
+audit left open, in `src/external/tinyobj_loader_c.h`, `src/rcore.c` and
+`src/platforms/rcore_web.c`. README.md, "Updating raylib", lists them.
 
 ## raylib-cpp
 
@@ -28,7 +29,8 @@ guard for the text console and no flow control while the game runs.
 
 zlib/libpng license. Copyright (c) Rob Loach (@RobLoach). The full text is in
 `thirdparty/raylib-cpp/LICENSE`. Only its headers (`include/`) are vendored,
-unmodified.
+with one change marked `PATCHED` in `include/Functions.hpp`: `ChangeDirectory()`
+returns true on success with raylib 6.2 too.
 
 ## resources/rabbit.png
 
