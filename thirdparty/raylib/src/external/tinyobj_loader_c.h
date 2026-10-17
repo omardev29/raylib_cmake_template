@@ -128,7 +128,10 @@ extern void tinyobj_materials_free(tinyobj_material_t *materials,
 #define TINYOBJ_FREE free
 #endif
 
-#define TINYOBJ_MAX_FACES_PER_F_LINE (16)
+// PATCHED (raylib_cmake_template): 64 rather than 16, from raylib's 430439e6,
+// after 6.2, as the face code in parseLine() is: a triangulated n-gon of up to
+// 23 vertices fits
+#define TINYOBJ_MAX_FACES_PER_F_LINE (64)
 
 #define IS_SPACE(x) (((x) == ' ') || ((x) == '\t'))
 #define IS_DIGIT(x) ((unsigned int)((x) - '0') < (unsigned int)(10))
@@ -1095,27 +1098,31 @@ static int parseLine(Command *command, const char *p, unsigned int p_len,
     token += 2;
     skip_space(&token);
 
+    // PATCHED (raylib_cmake_template): the face code from here on is raylib's
+    // 430439e6, after 6.2. In 6.2 a face of more than 16 vertices overflowed
+    // f[] on the stack, and a face the checks below drop (ROS: CLN-012) was
+    // left marked COMMAND_F with nothing filled in, for the passes after
+    // parseLine() to read, and write past attrib->faces. Now an n-gon of up
+    // to 23 vertices loads, triangulated, and anything longer is dropped
+    // cleanly
     while (!IS_NEW_LINE(token[0])) {
       tinyobj_vertex_index_t vi = parseRawTriple(&token);
       skip_space_and_cr(&token);
 
-      // PATCHED (raylib_cmake_template): f[] holds TINYOBJ_MAX_FACES_PER_F_LINE
-      // vertices, and a longer face wrote past it, on the stack: the checks
-      // below (ROS: CLN-012) only run after this loop. Such a face is dropped,
-      // as those checks drop it
+      // Guard the fixed-size f[] buffer against overrun.
       if (num_f >= TINYOBJ_MAX_FACES_PER_F_LINE) return 0;
-
       f[num_f] = vi;
       num_f++;
     }
 
-    // PATCHED (raylib_cmake_template): the check below (ROS: CLN-012) drops a
-    // face too long to triangulate, but after the line below has made it a
-    // face, whose indices are never set: the passes after parseLine() then
-    // read them as malloc() left them. Such a face is dropped here instead
-    if (triangulate && (3*num_f > TINYOBJ_MAX_FACES_PER_F_LINE)) return 0;
+    // A face needs at least 3 vertices, otherwise the triangulation
+    // below reads uninitialized f[] entries.
+    if (num_f < 3) return 0;
 
-    command->type = COMMAND_F;
+    // NOTE: command->type is deliberately not set here. A face rejected by
+    // the size checks below must not look like COMMAND_F to the later
+    // attribute-construction pass, which would otherwise consume
+    // uninitialized command->num_f/f[] fields (heap buffer overflow).
 
     if (triangulate) {
       unsigned int k;
@@ -1129,7 +1136,7 @@ static int parseLine(Command *command, const char *p, unsigned int p_len,
       // WARNING: If -DNDEBUG is set when compiling, assertions will not 
       // be present in the compiled binary, replacing by a runtime check
       //assert(3 * num_f < TINYOBJ_MAX_FACES_PER_F_LINE);
-      if (3*num_f > TINYOBJ_MAX_FACES_PER_F_LINE) return 0;
+      if ((num_f - 2) * 3 > TINYOBJ_MAX_FACES_PER_F_LINE) return 0;
       
       for (k = 2; k < num_f; k++) {
         i1 = i2;
@@ -1162,6 +1169,9 @@ static int parseLine(Command *command, const char *p, unsigned int p_len,
       command->num_f_num_verts = 1;
     }
 
+    // Mark COMMAND_F only after full validation/fill so a rejected face
+    // stays COMMAND_EMPTY for the attribute pass below.
+    command->type = COMMAND_F;
     return 1;
   }
 

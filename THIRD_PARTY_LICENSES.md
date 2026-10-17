@@ -19,9 +19,11 @@ without `.github/`, `examples/`, `projects/`, `tools/`, `logo/`, `build.zig` and
 `build.zig.zon`. Its only local changes are marked `PATCHED`
 (`grep -rn PATCHED thirdparty/raylib`): the Xrandr library RGFW needs to link
 on Linux; in `src/platforms/rcore_drm.c`, a guard for the text console and no
-flow control while the game runs; and three fixes for what raylib's security
-audit left open, in `src/external/tinyobj_loader_c.h`, `src/rcore.c` and
-`src/platforms/rcore_web.c`. README.md, "Updating raylib", lists them.
+flow control while the game runs; fixes for what raylib's security audit left
+open, in `src/external/tinyobj_loader_c.h`, `src/rcore.c` and
+`src/platforms/rcore_web.c`; and three of raylib's own fixes from after 6.2,
+brought back, in `src/external/tinyobj_loader_c.h` and `src/rtextures.c`.
+README.md, "Updating raylib", lists them.
 
 ## raylib-cpp
 

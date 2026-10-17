@@ -650,15 +650,17 @@ grep -rn PATCHED thirdparty
 |---|---|---|
 | `cmake/LibraryConfigurations.cmake` | links Xrandr, without which RGFW does not link on Linux | links it itself |
 | `src/platforms/rcore_drm.c` | the console guard, and no flow control ("A text console (DRM)") | restores the console after a crash too, and turns flow control off |
-| `src/external/tinyobj_loader_c.h` | cleanly drops the OBJ faces and lines raylib 6.2 does not load: a face of more than 16 vertices overflowed the stack, and one of more than 5, or a line of more than 4095 bytes, was left half-built, which could crash the loader | drops them cleanly itself |
+| `src/external/tinyobj_loader_c.h` | the face code of raylib's `430439e6`, from after 6.2: an OBJ n-gon of up to 23 vertices loads, triangulated, where 6.2 overflowed the stack on a face of more than 16 and left one of more than 5 half-built, which could crash the loader; and a line of more than 4095 bytes, which 6.2 left half-built too, is dropped cleanly | has `430439e6`, and sets the command empty before its first `return 0` |
 | `src/rcore.c` | drops a replayed automation event whose values are out of range | checks them in `PlayAutomationEvent()` |
+| `src/rtextures.c` | raylib's `b9758a64` and `226b281e`, from after 6.2: a QOI file of less than 13 bytes is no longer read past its end, and a PEP image no longer comes back already freed (PEP is off unless you turn it on) | has both |
 | `src/platforms/rcore_web.c` | `OpenURL()` on the web refuses quotes and anything but `http(s)://`, as it does on the desktop | does the same in this backend |
 | raylib-cpp's `Functions.hpp` | `raylib::ChangeDirectory()` returns true on success again | raylib-cpp follows raylib 6.2 |
 
 The tinyobj, automation and `OpenURL()` ones close what raylib 6.2's security
-audit left open: raylib says it addressed "most" of what the audit found. A face
-of more than 5 vertices is still dropped, as raylib 6.2 does, so export OBJ
-models triangulated.
+audit left open: raylib says it addressed "most" of what the audit found. The
+tinyobj and `rtextures.c` ones are raylib's own fixes, made after 6.2 and
+brought back. An OBJ face of more than 23 vertices is still dropped, so export
+models that have one triangulated.
 
 To move to a newer raylib, with your work committed:
 
@@ -711,14 +713,16 @@ How to tell whether the new raylib still needs each patch:
   shell, or if Ctrl+S freezes the game.
 - **tinyobj** (`src/external/tinyobj_loader_c.h`), in `parseLine()`, one part
   at a time:
-  - the bound on the face loop: still needed if nothing checks `num_f` before
-    `f[num_f] = vi;`;
-  - the early drop of a long face: still needed if the face code sets
-    `command->type = COMMAND_F;` before a `return 0`;
+  - the face code, with `TINYOBJ_MAX_FACES_PER_F_LINE` at 64: still needed if
+    the face code sets `command->type = COMMAND_F;` before a `return 0`, or if
+    that limit is 16;
   - the `COMMAND_EMPTY` at the top: still needed if
     `if (p_len > 4095) return 0;` comes before `command->type = COMMAND_EMPTY;`.
 - **Automation events** (`src/rcore.c`): still needed if `PlayAutomationEvent()`
   uses `event.params[0]` as an index without checking it first.
+- **QOI and PEP** (`src/rtextures.c`), in `LoadImageFromMemory()`: the QOI part
+  is still needed if `qoi_decode()` gets `fileData[12]`, the PEP part if
+  `PEP_FREE(pepData)` comes after `image.data = pepData`.
 - **`OpenURL()` on the web** (`src/platforms/rcore_web.c`): still needed if its
   `OpenURL()` does not check for `http://` and `https://`.
 - **raylib-cpp's `ChangeDirectory()`** (`include/Functions.hpp`): still needed if

@@ -512,7 +512,12 @@ Image LoadImageFromMemory(const char *fileType, const unsigned char *fileData, i
         if (fileData != NULL)
         {
             qoi_desc desc = { 0 };
-            image.data = qoi_decode(fileData, dataSize, &desc, (int) fileData[12]);
+            // PATCHED (raylib_cmake_template): 0 rather than fileData[12], as raylib's
+            // b9758a64 has it, after 6.2: that is the channel count in the file's
+            // header, read before qoi_decode() checks the data is long enough to
+            // have one, so data of less than 13 bytes was read past its end. 0 makes
+            // qoi_decode() take it from the header itself, once it has checked
+            image.data = qoi_decode(fileData, dataSize, &desc, 0);   // NOTE: Using channels from file data
             image.width = desc.width;
             image.height = desc.height;
             image.format = (desc.channels == 4)? PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 : PIXELFORMAT_UNCOMPRESSED_R8G8B8;
@@ -540,7 +545,10 @@ Image LoadImageFromMemory(const char *fileType, const unsigned char *fileData, i
             image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
             image.mipmaps = 1;
 
-            PEP_FREE(pepData);
+            // PATCHED (raylib_cmake_template): no PEP_FREE(pepData) here, as in
+            // raylib's 226b281e, after 6.2: pepData is image.data, so the image came
+            // back already freed, and UnloadImage() freed it a second time.
+            // pep_free() frees the compressed bytes, not this
             pep_free(&p);
         }
     }
