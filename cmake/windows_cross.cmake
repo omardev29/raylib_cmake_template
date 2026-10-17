@@ -11,10 +11,10 @@ set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
 # GCC built to make Windows programs, named after the system it targets. Debian
-# and Ubuntu install it twice over, once per thread model: -win32, their
-# default, and -posix, taken here when it is there, because GCC has std::thread
-# on -win32 only from version 13, and Debian 12 ships 12. Other distributions
-# have just the one, with no suffix.
+# and Ubuntu package it once per thread model: -win32, their default, and
+# -posix, taken here when it is there, because GCC has std::thread on -win32
+# only from version 13, and Debian 12 ships 12. Other distributions have just
+# the one, with no suffix.
 find_program(_mingw_cc NAMES x86_64-w64-mingw32-gcc-posix x86_64-w64-mingw32-gcc NO_CACHE)
 find_program(_mingw_cxx NAMES x86_64-w64-mingw32-g++-posix x86_64-w64-mingw32-g++ NO_CACHE)
 find_program(_mingw_rc NAMES x86_64-w64-mingw32-windres NO_CACHE)

@@ -133,16 +133,20 @@ links there:
 | Alpine | `libatomic`, as `mesa-dev` brings the rest |
 
 `make win`, the Windows build made on Linux ("Windows, from Linux" below),
-needs MinGW-w64 — GCC built to make Windows programs — and none of the X11
-packages above. `make win-run` also needs Wine, to start what it built:
+needs MinGW-w64 — GCC built to make Windows programs — besides make, CMake and
+Ninja: not your Linux compiler, nor any of the X11 packages above. One package
+brings all of it:
 
-| | `make win` needs | `make win-run` also needs |
-|---|---|---|
-| Debian, Ubuntu | `g++-mingw-w64-x86-64` | `wine` |
-| Fedora | `mingw64-gcc-c++ mingw64-winpthreads-static` | `wine` |
-| Arch | `mingw-w64-gcc` | `wine`, from the `multilib` repository |
-| openSUSE | `mingw64-cross-gcc-c++` | `wine` |
-| Alpine | `mingw-w64-gcc` | `wine` |
+| | `make win` needs |
+|---|---|
+| Debian, Ubuntu | `g++-mingw-w64-x86-64-posix` |
+| Fedora | `mingw64-gcc-c++` |
+| Arch | `mingw-w64-gcc` (1.6 GB installed: it brings 32-bit Windows and other languages too) |
+| openSUSE | `mingw64-cross-gcc-c++` |
+| Alpine | `mingw-w64-gcc` |
+
+`make win-run`, which starts that build under Wine, needs the `wine` package,
+which all of them have.
 
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
@@ -368,10 +372,14 @@ Worth knowing:
   and finds its assets. Try it on a real Windows machine before you ship it.
   The first run sets Wine up in `~/.wine`, which takes a moment.
 - **64-bit only**, which is what every Windows PC of the last decade runs.
-- **Threads.** Debian and Ubuntu install MinGW-w64 twice, once per thread
-  model. The toolchain file takes `-posix`, because `-win32` has `std::thread`
+- **Threads.** Debian and Ubuntu package MinGW-w64 once per thread model,
+  `-win32` and `-posix`. "Setting up" installs `-posix`, and the toolchain file
+  takes it even when both are there, because `-win32` has `std::thread`
   only from GCC 13 on, and Debian 12 ships GCC 12. The `.exe` needs no extra
   DLL either way.
+- **The C runtime.** Arch's and Alpine's MinGW-w64 build against UCRT, which
+  Windows 10 and 11 come with and Windows 7 and 8.1 need an update for; the
+  others against `msvcrt.dll`, which every Windows has.
 - **Libraries you add** need a Windows build too. One compiled with the game,
   the way "Adding a library" does it, just works. A prebuilt one has to be
   built for MinGW-w64 (Fedora packages many, as `mingw64-...`), and the
