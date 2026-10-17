@@ -1021,6 +1021,12 @@ static int parseLine(Command *command, const char *p, unsigned int p_len,
   char linebuf[4096];
   const char *token;
   
+  // PATCHED (raylib_cmake_template): the check below (ROS: CLN-012) returns
+  // before the command is set empty, and the passes after parseLine() read
+  // every command as malloc() left it: a line of more than 4095 bytes was
+  // taken for whatever command that memory held
+  command->type = COMMAND_EMPTY;
+
   // @raysan5: 
   // WARNING: If -DNDEBUG is set when compiling, assertions will not 
   // be present in the compiled binary, replacing by a runtime check
@@ -1102,6 +1108,12 @@ static int parseLine(Command *command, const char *p, unsigned int p_len,
       f[num_f] = vi;
       num_f++;
     }
+
+    // PATCHED (raylib_cmake_template): the check below (ROS: CLN-012) drops a
+    // face too long to triangulate, but after the line below has made it a
+    // face, whose indices are never set: the passes after parseLine() then
+    // read them as malloc() left them. Such a face is dropped here instead
+    if (triangulate && (3*num_f > TINYOBJ_MAX_FACES_PER_F_LINE)) return 0;
 
     command->type = COMMAND_F;
 

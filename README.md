@@ -650,13 +650,15 @@ grep -rn PATCHED thirdparty
 |---|---|---|
 | `cmake/LibraryConfigurations.cmake` | links Xrandr, without which RGFW does not link on Linux | links it itself |
 | `src/platforms/rcore_drm.c` | the console guard, and no flow control ("A text console (DRM)") | restores the console after a crash too, and turns flow control off |
-| `src/external/tinyobj_loader_c.h` | drops an OBJ face of more than 16 vertices, which overflowed the stack | bounds that loop |
+| `src/external/tinyobj_loader_c.h` | cleanly drops the OBJ faces and lines raylib 6.2 does not load: a face of more than 16 vertices overflowed the stack, and one of more than 5, or a line of more than 4095 bytes, was left half-built, which could crash the loader | drops them cleanly itself |
 | `src/rcore.c` | drops a replayed automation event whose values are out of range | checks them in `PlayAutomationEvent()` |
 | `src/platforms/rcore_web.c` | `OpenURL()` on the web refuses quotes and anything but `http(s)://`, as it does on the desktop | does the same in this backend |
 | raylib-cpp's `Functions.hpp` | `raylib::ChangeDirectory()` returns true on success again | raylib-cpp follows raylib 6.2 |
 
 The tinyobj, automation and `OpenURL()` ones close what raylib 6.2's security
-audit left open: raylib says it addressed "most" of what the audit found.
+audit left open: raylib says it addressed "most" of what the audit found. A face
+of more than 5 vertices is still dropped, as raylib 6.2 does, so export OBJ
+models triangulated.
 
 To move to a newer raylib:
 
