@@ -1,4 +1,4 @@
-# Build output: build/ (debug), build/release/ and build/web/.
+# Build output: build/ (debug), build/release/, build/web/ and build/windows/.
 /build/
 # Visual Studio's default build directory, when a folder is opened without the presets.
 /out/

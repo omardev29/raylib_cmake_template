@@ -2,7 +2,7 @@
 
 A raylib starter that gets out of your way. **raylib, statically linked, a CMake
 build, and one short config file** — and three targets you build from your own
-machine: **Windows, Linux and the web.**
+machine: **Windows, Linux and the web**, with Windows buildable from Linux too.
 
 There is no framework layer here. You write ordinary raylib:
 
@@ -45,6 +45,8 @@ cmake --build --preset debug --target run
 | `make rel` | compile the build you ship, into `build/release/` |
 | `make web` | compile for the browser, into `build/web/` |
 | `make serve` | play the web build: emrun serves it and opens your browser |
+| `make win` | on Linux, compile the Windows build you ship, into `build/windows/` |
+| `make win-run` | play that Windows build here, under Wine |
 | `make clean` | delete every build |
 
 Every recipe is a single CMake command, so the `Makefile` doubles as a cheat
@@ -129,6 +131,28 @@ links there:
 | Arch | nothing more: `mesa` brings them |
 | openSUSE | `libdrm-devel libgbm-devel Mesa-libEGL-devel Mesa-libGLESv2-devel libatomic1` |
 | Alpine | `libatomic`, as `mesa-dev` brings the rest |
+
+`make win`, the Windows build made on Linux ("Windows, from Linux" below),
+needs MinGW-w64 — GCC built to make Windows programs — besides make, CMake and
+Ninja: not your Linux compiler, nor any of the X11 packages above. One package
+brings all of it:
+
+| | `make win` needs |
+|---|---|
+| Debian, Ubuntu | `g++-mingw-w64-x86-64-posix` |
+| Fedora | `mingw64-gcc-c++` |
+| Arch | `mingw-w64-gcc` (1.6 GB installed: it brings 32-bit Windows and other languages too) |
+| openSUSE | `mingw64-cross-gcc-c++` |
+| Alpine | `mingw-w64-gcc` |
+
+On a Linux running on ARM or RISC-V, the same package does it where the
+distribution builds it for that processor: Debian, Ubuntu, Fedora and openSUSE
+do for 64-bit ARM, and Debian 13, Ubuntu and openSUSE Tumbleweed for RISC-V.
+Arch Linux ARM and Alpine do not.
+
+`make win-run`, which starts that build under Wine, needs the `wine` package,
+which all of them have for an x86-64 PC (for ARM and RISC-V, see "Windows,
+from Linux").
 
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
@@ -224,12 +248,13 @@ a typo stops the build with a message that names the setting.
   it. `rtext` needs `rtextures`: dropping `rtextures` means dropping both.
 - `WINDOWS_BACKEND`, `LINUX_BACKEND`, `LINUX_WAYLAND` → the window backend raylib
   is built on. GLFW everywhere by default; `win32` is raylib's own native Windows
-  backend; RGFW is smaller and younger; `drm` runs on a text console with no
-  desktop at all ("A text console (DRM)"). Switching is safe in an existing
-  build: the choice is worked out again on every configure.
+  backend, still young (`config.cmake` says what it lacks); RGFW is smaller and
+  younger; `drm` runs on a text console with no desktop at all ("A text console
+  (DRM)"). Switching is safe in an existing build: the choice is worked out
+  again on every configure.
 - `DEV_COMPILER`, `DEV_LINKER` → your local compiler and linker, **debug preset
-  only**. `release` and `web` build in directories of their own with the
-  platform's defaults, so nothing here can change what you ship. `mold` is worth
+  only**. `release`, `web` and `windows` build in directories of their own with
+  the platform's defaults, so nothing here can change what you ship. `mold` is worth
   having on PATH on Linux; it makes the link almost free. Going back to
   `DEV_COMPILER "default"` needs a `make clean` — CMake cannot un-pick a
   compiler, and the build tells you so instead of quietly keeping the old one.
@@ -292,8 +317,8 @@ halves of that, and it is one line at the top of `main()`:
 
 ## The three targets
 
-**Linux and Windows** are the same command on each machine. There is no
-cross-compilation here: you build Windows on Windows.
+**Linux and Windows** are the same command on each machine — and Linux can
+build the Windows one too, with `make win` ("Windows, from Linux", below).
 
 ```bash
 make rel          # or: cmake --preset release && cmake --build --preset release
@@ -320,6 +345,59 @@ Any static file server will do instead of emrun
 from the filesystem: the browser will refuse to load the `.data` file next to
 it.
 
+### Windows, from Linux
+
+On Linux, with MinGW-w64 installed ("Setting up"):
+
+```bash
+make win          # or: cmake --preset windows && cmake --build --preset windows
+make win-run      # play it here, under Wine
+```
+
+`build/windows/` then holds `game.exe` and its `resources/`: the same folder
+`make rel` makes on Windows with MinGW, with no console window and nothing to
+install on the player's machine, ready to zip and ship.
+
+How it works: the `windows` preset names a toolchain file,
+`cmake/windows_cross.cmake`, which CMake reads before anything else. It says
+three things. The target system is Windows, on x86-64. The compiler is
+`x86_64-w64-mingw32-g++`, GCC built to make Windows programs, which brings its
+own copy of Windows' headers and libraries. And libraries are looked for in
+MinGW-w64's folder, never in Linux's `/usr/lib`. From there on CMake configures
+as it would on Windows with MinGW — `WIN32` and `MINGW` are set — so the rest
+of `CMakeLists.txt` needs nothing of its own: raylib builds its Windows backend
+(`WINDOWS_BACKEND`), and the release is `-static`, has no console window and
+gets `resources/` copied next to it. What comes out is a native Windows
+program; Wine only comes in for `make win-run`.
+
+Worth knowing:
+
+- **Release only.** There is no Windows debug build from Linux. Debug on Linux,
+  where the game is the same code, or on Windows.
+- **Wine is not Windows.** `make win-run` is a quick look that the `.exe` starts
+  and finds its assets. Try it on a real Windows machine before you ship it.
+  The first run sets Wine up in `~/.wine`, which takes a moment.
+- **64-bit x86 only**, which is what every Windows PC of the last decade runs;
+  Windows 11 on ARM runs it too, through its x86-64 emulation.
+- **On an ARM or RISC-V Linux**, `make win` works just the same where the
+  distribution has MinGW-w64 for it ("Setting up"): the compiler runs on that
+  processor and still writes the x86-64 `.exe`, byte for byte the one the same
+  compiler writes on an x86-64 PC. `make win-run` does not: Wine runs Windows
+  programs built for the processor it runs on, so there an x86-64 one needs an
+  x86 emulator alongside Wine, such as Box64 (or FEX, on ARM).
+- **Threads.** Debian and Ubuntu package MinGW-w64 once per thread model,
+  `-win32` and `-posix`. "Setting up" installs `-posix`, and the toolchain file
+  takes it even when both are there, because `-win32` has `std::thread`
+  only from GCC 13 on, and Debian 12 ships GCC 12. The `.exe` needs no extra
+  DLL either way.
+- **The C runtime.** Arch's and Alpine's MinGW-w64 build against UCRT, which
+  Windows 10 and 11 come with and Windows 7 and 8.1 need an update for; the
+  others against `msvcrt.dll`, which every Windows has.
+- **Libraries you add** need a Windows build too. One compiled with the game,
+  the way "Adding a library" does it, just works. A prebuilt one has to be
+  built for MinGW-w64 (Fedora packages many, as `mingw64-...`), and the
+  toolchain file looks for it in MinGW-w64's folder.
+
 ### How optimized is a release build?
 
 As far as a binary goes while it still runs on any machine of its kind:
@@ -332,9 +410,10 @@ As far as a binary goes while it still runs on any machine of its kind:
 | Symbols stripped | yes (not on macOS) | no `.pdb` in a release | yes |
 | `assert()` | off | off | off |
 
-raylib and GLFW get all of it too, not only your code. Measured on Linux,
-applying it to GLFW as well and stripping the symbols takes the release from
-586 KB to 529 KB; on the web, full LTO takes the `.wasm` from 138 KB to 121 KB.
+raylib and GLFW get all of it too, not only your code. Measured on Linux, a
+plain CMake Release build of this template is 1,225 KB once stripped, and the
+`release` preset's is 451 KB; on the web, full LTO takes the `.wasm` from 127 KB
+to 110 KB.
 
 What is deliberately left off, because each one trades something away:
 
@@ -358,7 +437,7 @@ to yield; raylib's `WindowShouldClose()` does that with `emscripten_sleep()`, an
 ASYNCIFY is what makes a sleep inside a normal function possible. It instruments
 every function that could be on the stack when that happens — most of them — and
 you pay in download size and a little speed, whether or not anything suspends.
-Measured with this template: the `.wasm` is 121 KB with ASYNCIFY and 91 KB
+Measured with this template: the `.wasm` is 110 KB with ASYNCIFY and 83 KB
 without, a third more.
 
 That trade is right for a template whose point is plain raylib. When the
@@ -620,7 +699,7 @@ only things that are not negotiable:
 | raylib | backend, Wayland, disabled modules, raylib's warnings | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
-| run | the `run` target | Can go; then take `run` and `serve` out of the Makefile too. |
+| run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve` and `win-run` out of the Makefile too. |
 
 Some things look removable and are not:
 
@@ -635,28 +714,99 @@ Some things look removable and are not:
 
 ## Updating raylib
 
-`thirdparty/raylib/` is raylib's own source, copied in. It is raylib 6.0 —
-precisely upstream commit `c2ea6a3` (25 April 2026), two days after the 6.0
-release, so it carries a handful of post-release fixes — without `examples/`,
-`projects/`, `tools/`, `logo/` and `build.zig`. Its only local changes are
-marked `PATCHED`:
+`thirdparty/raylib/` is raylib's own source, copied in: raylib 6.2, as tagged on
+15 October 2026 (`02566453`), without `.github/`, `examples/`, `projects/`,
+`tools/`, `logo/`, `build.zig` and `build.zig.zon`. Its only local changes, and
+the one in raylib-cpp, are marked `PATCHED`:
 
 ```bash
-grep -rn PATCHED thirdparty/raylib
+grep -rn PATCHED thirdparty
 ```
 
-To move to a newer raylib:
+| File | The change | It can go once raylib |
+|---|---|---|
+| `cmake/LibraryConfigurations.cmake` | links Xrandr, without which RGFW does not link on Linux | links it itself |
+| `src/platforms/rcore_drm.c` | the console guard, and no flow control ("A text console (DRM)") | restores the console after a crash too, and turns flow control off |
+| `src/external/tinyobj_loader_c.h` | the face code of raylib's `430439e6`, from after 6.2: an OBJ n-gon of up to 23 vertices loads, triangulated, where 6.2 overflowed the stack on a face of more than 16 and left one of more than 5 half-built, which could crash the loader; and a line of more than 4095 bytes, which 6.2 left half-built too, is dropped cleanly | has `430439e6`, and sets the command empty before its first `return 0` |
+| `src/rcore.c` | drops a replayed automation event whose values are out of range | checks them in `PlayAutomationEvent()` |
+| `src/rtextures.c` | raylib's `b9758a64` and `226b281e`, from after 6.2: a QOI file of less than 13 bytes is no longer read past its end, and a PEP image no longer comes back already freed (PEP is off unless you turn it on) | has both |
+| `src/platforms/rcore_web.c` | `OpenURL()` on the web refuses quotes and anything but `http(s)://`, as it does on the desktop | does the same in this backend |
+| raylib-cpp's `Functions.hpp` | `raylib::ChangeDirectory()` returns true on success again | raylib-cpp follows raylib 6.2 |
 
-1. Download it: a release from <https://github.com/raysan5/raylib/releases>, or
-   any commit.
-2. **Delete `thirdparty/raylib/` first**, then copy the new one in, without the
-   folders above. Copying over the old folder leaves behind every file the new
-   version removed.
-3. For each `PATCHED` block, check whether the new raylib still needs it, and
-   re-apply it if so.
-4. Build every preset you use — `make`, `make rel`, `make web` — and run them.
-5. Update raylib-cpp to its matching release: its version follows raylib's
-   (6.0.x is for raylib 6.0). It is header-only, so that is copying `include/`.
+The tinyobj, automation and `OpenURL()` ones close what raylib 6.2's security
+audit left open: raylib says it addressed "most" of what the audit found. The
+tinyobj and `rtextures.c` ones are raylib's own fixes, made after 6.2 and
+brought back. An OBJ face of more than 23 vertices is still dropped, so export
+models that have one triangulated.
+
+To move to a newer raylib, with your work committed:
+
+1. **Save the patches.** Download the raylib this copy came from (6.2, above),
+   delete `thirdparty/raylib/` and copy it in, the way step 2 does with the new
+   one. What `git diff` shows then is the `PATCHED` blocks and nothing else:
+   save it the other way round, as the changes to make.
+
+   ```bash
+   git diff --stat thirdparty/raylib     # only the files in the table above
+   git diff -R --output=raylib-patches.diff thirdparty/raylib
+   ```
+
+2. **Copy the new raylib in.** Download it: a release from
+   <https://github.com/raysan5/raylib/releases>, or any commit. **Delete
+   `thirdparty/raylib/` first**, then copy the new one in, without the folders
+   and files above. Copying over the old folder leaves behind every file the
+   new version removed.
+3. **See which patches it still needs**, on its code as it comes: the list
+   below says how to tell, for each one. raylib's `CHANGELOG` names what a
+   release fixed.
+4. **Re-apply those.** `--exclude` leaves out a file whose patch is no longer
+   needed, one `--exclude` per file (`rcore_web.c` is only an example):
+
+   ```bash
+   git apply --reject --exclude="*rcore_web.c" raylib-patches.diff
+   ```
+
+   What still fits is applied. Each part that does not is left next to its file
+   as a `.rej`, to redo by hand, or to drop if the new raylib no longer needs
+   it. Then delete the `.rej` files and `raylib-patches.diff`.
+5. Build every preset you use — `make`, `make rel`, `make web` — and run them.
+   If one no longer builds, the last table in this section says what
+   `CMakeLists.txt` relies on.
+6. Bring this section up to date — the version, the table, the list below — and
+   `THIRD_PARTY_LICENSES.md`.
+7. Update raylib-cpp too, once a release for the new raylib is out. It is
+   header-only, so that is copying `include/`, and its patch moves the same
+   way, with `thirdparty/raylib-cpp/include` in place of `thirdparty/raylib`.
+   Its version does not have to match raylib's: the 6.0.3 here works with
+   raylib 6.2.
+
+How to tell whether the new raylib still needs each patch:
+
+- **Xrandr** (`cmake/LibraryConfigurations.cmake`): still needed if, on Linux,
+  with `LINUX_BACKEND` set to `"rgfw"`, `make` fails to link on `XRR…` symbols.
+- **The console guard** (`src/platforms/rcore_drm.c`): run a DRM build in a
+  text console, type something while it runs, and kill it with `kill -9` from
+  another console or over SSH. Still needed if what you typed reaches the
+  shell, or if Ctrl+S freezes the game.
+- **tinyobj** (`src/external/tinyobj_loader_c.h`), in `parseLine()`, one part
+  at a time:
+  - the face code, with `TINYOBJ_MAX_FACES_PER_F_LINE` at 64: still needed if
+    the face code sets `command->type = COMMAND_F;` before a `return 0`, or if
+    that limit is 16;
+  - the `COMMAND_EMPTY` at the top: still needed if
+    `if (p_len > 4095) return 0;` comes before `command->type = COMMAND_EMPTY;`.
+- **Automation events** (`src/rcore.c`): still needed if `PlayAutomationEvent()`
+  uses `event.params[0]` as an index without checking it first.
+- **QOI and PEP** (`src/rtextures.c`), in `LoadImageFromMemory()`: the QOI part
+  is still needed if `qoi_decode()` gets `fileData[12]`, the PEP part if
+  `PEP_FREE(pepData)` comes after `image.data = pepData`.
+- **`OpenURL()` on the web** (`src/platforms/rcore_web.c`): still needed if its
+  `OpenURL()` does not check for `http://` and `https://`.
+- **raylib-cpp's `ChangeDirectory()`** (`include/Functions.hpp`): still needed if
+  it returns raylib's result as it is, while raylib returns 0 on success.
+
+These decide, not `git apply`: a patch can apply cleanly to code that no longer
+needs it, and fail on code that still does.
 
 What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 
@@ -668,14 +818,8 @@ What `CMakeLists.txt` relies on, which is where a new raylib could break it:
 | every `SUPPORT_MODULE_*` inside an `#ifndef` | `src/config.h` |
 | raylib *not* defining `_GLFW_WAYLAND` for its own sources | `src/CMakeLists.txt` — if a new raylib does, the `_GLFW_WAYLAND` block in `CMakeLists.txt` can go |
 
-With raylib's master of October 2026 (6.1-dev) and none of the patches,
-`CMakeLists.txt` needs no change: GLFW, Wayland, the web and Windows with all
-three backends build. The `Win32` patch is upstream there, so it can be
-dropped. The RGFW one is still needed on Linux — without it the link fails on
-`XRRFreeCrtcInfo` — and so are those in `rcore_drm.c` ("A text console
-(DRM)"): raylib still puts the console back only on a clean exit, and leaves
-Ctrl+S stopping it. raylib's CMake still builds an X11-only GLFW unless told
-otherwise, so `LINUX_WAYLAND` still matters.
+raylib's CMake still builds an X11-only GLFW unless told otherwise, so
+`LINUX_WAYLAND` still matters.
 
 When a newer raylib makes one of these workarounds unnecessary, delete it: it is
 your code now.
@@ -685,14 +829,15 @@ your code now.
 ```
 config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
-CMakePresets.json       the three builds: debug, release and web
-cmake/                  check_config.cmake, and DEV_COMPILER and DEV_LINKER
+CMakePresets.json       the four builds: debug, release, web and windows
+cmake/                  check_config.cmake, DEV_COMPILER and DEV_LINKER, and
+                        windows_cross.cmake, for the Windows build from Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
 include/                your headers
 resources/              your assets
-thirdparty/raylib/      raylib 6.0, plus the changes marked PATCHED
+thirdparty/raylib/      raylib 6.2, plus the changes marked PATCHED
 thirdparty/raylib-cpp/  raylib-cpp's headers, there if you want them
-Makefile                the six commands above
+Makefile                the eight commands above
 ```
 
 Adding a source file needs **no CMake edit**: `src/` is globbed recursively, and
@@ -720,8 +865,14 @@ at each step. The parts worth slowing down for:
 - **Generator expressions.** `$<CONFIG:Debug>` picks the MSVC runtime per
   configuration, `$<BOOL:...>` turns `ON`/`OFF` into the `1`/`0` your code
   sees, and `$<TARGET_FILE_DIR:...>` is where the executable ends up.
-- **Presets.** `CMakePresets.json` is the three builds; each gets its own
-  directory, so switching between them never rebuilds the others.
+- **Presets.** `CMakePresets.json` is the four builds; each gets its own
+  directory, so switching between them never rebuilds the others. The
+  `windows` one has a `condition` that hides it on Windows, where it has
+  nothing to do.
+- **Toolchain files.** The web and windows presets each name one: a file CMake
+  reads before `project()`, which says what system the build is for and which
+  compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is
+  short enough to read in a minute.
 
 ## What this is not
 

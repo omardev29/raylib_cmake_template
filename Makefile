@@ -5,6 +5,9 @@
 #   make rel      compile the build you ship, into build/release/
 #   make web      compile for the browser, into build/web/ (needs the emsdk)
 #   make serve    play the web build: emrun serves it and opens your browser
+#   make win      compile the Windows build you ship, on Linux, into
+#                 build/windows/ (needs MinGW-w64)
+#   make win-run  play that Windows build here, under Wine
 #   make clean    delete every build
 #
 # Every recipe is plain CMake underneath, so this file doubles as a cheat
@@ -39,6 +42,12 @@ web: build/web/build.ninja
 serve: build/web/build.ninja
 	"cmake" --build --preset web --target run
 
+win: build/windows/build.ninja
+	"cmake" --build --preset windows
+
+win-run: build/windows/build.ninja
+	"cmake" --build --preset windows --target run
+
 clean:
 	"cmake" -E rm -rf build
 
@@ -56,4 +65,7 @@ build/release/build.ninja: CMakePresets.json
 build/web/build.ninja: CMakePresets.json
 	"cmake" --preset web
 
-.PHONY: dev run rel web serve clean
+build/windows/build.ninja: CMakePresets.json
+	"cmake" --preset windows
+
+.PHONY: dev run rel web serve win win-run clean

@@ -172,7 +172,9 @@ LoadDirectoryFilesEx(const std::string& basePath, const std::string& filter, boo
  * Change working directory, return true on success
  */
 RLCPP_MAYBEUNUSED RLCPPAPI inline bool ChangeDirectory(const std::string& dir) {
-    return ::ChangeDirectory(dir.c_str());
+    // PATCHED (raylib_cmake_template): raylib 6.2's ChangeDirectory() returns 0
+    // on success, where 6.0's returned true, and this would turn that 0 into false
+    return ::ChangeDirectory(dir.c_str()) == 0;
 }
 
 /**

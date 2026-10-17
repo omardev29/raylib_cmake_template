@@ -95,7 +95,7 @@ if(EMSCRIPTEN)
   set(PLATFORM "Web")
 elseif(WIN32)
   if(WINDOWS_BACKEND STREQUAL "win32")
-    set(PLATFORM "Win32") # needs a local patch to raylib 6.0: README.md, "Updating raylib"
+    set(PLATFORM "Win32") # raylib's own backend, no GLFW: config.cmake says what it lacks
   elseif(WINDOWS_BACKEND STREQUAL "rgfw")
     set(PLATFORM "RGFW")
   endif()
@@ -133,7 +133,7 @@ if(GLFW_BUILD_WAYLAND AND PLATFORM STREQUAL "Desktop")
   target_include_directories(raylib SYSTEM PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIRS})
 endif()
 
-# RAYLIB_DISABLED_MODULES. Every switch in raylib 6.0's config.h sits inside an
+# RAYLIB_DISABLED_MODULES. Every switch in raylib's config.h sits inside an
 # #ifndef, so turning a module off is one definition and nothing else.
 foreach(module IN LISTS RAYLIB_DISABLED_MODULES)
   string(TOUPPER "${module}" module)
@@ -246,10 +246,22 @@ endif()
 
 # cmake --build --preset debug --target run
 # builds whatever changed, then starts the game. On the web it serves the page
-# with emrun, which comes with the emsdk, and opens your browser.
+# with emrun, which comes with the emsdk, and opens your browser. A Windows
+# build made on Linux starts under Wine, when there is one.
 if(EMSCRIPTEN)
   add_custom_target(run COMMAND emrun "$<TARGET_FILE:${GAME_NAME}>"
     USES_TERMINAL VERBATIM)
+  add_dependencies(run ${GAME_NAME})
+elseif(WIN32 AND NOT CMAKE_HOST_WIN32)
+  # Wine is looked for when the game starts, not when CMake configures, so
+  # installing it later is all it takes. WINEDEBUG keeps Wine's own chatter down
+  # to its errors. WINEDLLOVERRIDES skips the offer Wine makes the first time,
+  # to install .NET and a web engine: a raylib game needs neither.
+  add_custom_target(run
+    COMMAND sh -c "command -v wine > /dev/null || { echo 'Playing the Windows build here needs Wine: README.md, Setting up.'; exit 1; }"
+    COMMAND "${CMAKE_COMMAND}" -E env WINEDEBUG=fixme-all "WINEDLLOVERRIDES=mscoree,mshtml="
+            wine "$<TARGET_FILE:${GAME_NAME}>"
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL VERBATIM)
   add_dependencies(run ${GAME_NAME})
 else()
   add_custom_target(run COMMAND ${GAME_NAME}

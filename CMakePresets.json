@@ -36,6 +36,22 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "PRODUCTION_BUILD": "ON"
             }
+        },
+        {
+            "name": "windows",
+            "displayName": "Windows, from Linux (MinGW-w64)",
+            "inherits": "base",
+            "toolchainFile": "${sourceDir}/cmake/windows_cross.cmake",
+            "binaryDir": "${sourceDir}/build/windows",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PRODUCTION_BUILD": "ON"
+            },
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         }
     ],
     "buildPresets": [
@@ -50,6 +66,10 @@
         {
             "name": "web",
             "configurePreset": "web"
+        },
+        {
+            "name": "windows",
+            "configurePreset": "windows"
         }
     ]
 }
