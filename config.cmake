@@ -67,9 +67,17 @@ set(LINUX_WAYLAND OFF)
 # always build with the platform's defaults, so nothing here can change what
 # you ship.
 #
-#   DEV_COMPILER  default | clang | gcc | mingw | msvc
-#                 mingw looks for MSYS2's x86_64-w64-mingw32-gcc before a plain
-#                 gcc. mingw and msvc refuse to run off Windows.
+#   DEV_C_COMPILER    default | clang | gcc | mingw | msvc | tcc
+#   DEV_CPP_COMPILER  default | clang | gcc | mingw | msvc
+#                 The C compiler builds raylib, GLFW and your .c files; the C++
+#                 one your .cpp files. They can differ: tcc for the C and gcc
+#                 for the C++, say. tcc, the Tiny C Compiler, builds raylib in
+#                 about a second and optimizes nothing — x86-64 Linux only,
+#                 and README.md, "tcc", says what else is different. mingw looks
+#                 for MSYS2's x86_64-w64-mingw32-gcc before a plain gcc. mingw
+#                 and msvc refuse to run off Windows, and msvc goes with msvc
+#                 only. Each build starts by naming the compilers it really got:
+#                 ===INITIALIZING DEBUG BUILD WITH TCC (C) AND GCC (C++)===
 #
 #   DEV_LINKER    auto | mold | lld | default
 #                 auto tries mold, then lld, keeps the first one that actually
@@ -78,5 +86,6 @@ set(LINUX_WAYLAND OFF)
 #                 only — it writes ELF and nothing else. lld works wherever the
 #                 toolchain can reach it. On macOS the system linker is already
 #                 fast, and MSVC always uses its own.
-set(DEV_COMPILER "default")
+set(DEV_C_COMPILER "default")
+set(DEV_CPP_COMPILER "default")
 set(DEV_LINKER "auto")

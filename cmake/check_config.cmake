@@ -14,7 +14,7 @@ if(NOT "${GAME_NAME}" MATCHES "^[A-Za-z0-9_-]+$")
     "config.cmake: GAME_NAME \"${GAME_NAME}\" becomes a file name on every system. "
     "Use letters, digits, _ and - only.")
 endif()
-if(GAME_NAME MATCHES "^(raylib|glfw|run|copy_resources)$")
+if(GAME_NAME MATCHES "^(raylib|glfw|run|copy_resources|banner|tcc_runtime)$")
   message(FATAL_ERROR
     "config.cmake: GAME_NAME \"${GAME_NAME}\" is the name of a target the build "
     "already has. Pick another one.")
@@ -55,5 +55,6 @@ if(LINUX_BACKEND STREQUAL "rgfw" AND LINUX_WAYLAND)
     "LINUX_WAYLAND ON. Use glfw for native Wayland, or set LINUX_WAYLAND OFF.")
 endif()
 
-expect_one_of(DEV_COMPILER default clang gcc mingw msvc)
+expect_one_of(DEV_C_COMPILER default clang gcc mingw msvc tcc)
+expect_one_of(DEV_CPP_COMPILER default clang gcc mingw msvc)
 expect_one_of(DEV_LINKER auto mold lld default)

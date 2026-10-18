@@ -4,7 +4,7 @@
 # checking means compiling a test program, which needs a compiler.
 
 if(PRODUCTION_BUILD OR CMAKE_TOOLCHAIN_FILE OR DEV_LINKER STREQUAL "default")
-  return() # same rules as DEV_COMPILER
+  return() # same rules as DEV_C_COMPILER and DEV_CPP_COMPILER
 endif()
 if(MSVC)
   message(STATUS "DEV_LINKER: MSVC always links with its own link.exe")
@@ -26,6 +26,20 @@ else()
   set(_dev_linkers ${DEV_LINKER})
 endif()
 
+# Code compiled by tcc links right with GNU ld only. mold and lld keep tcc's
+# line numbers for the debugger but drop their text (.stabstr), and newer tcc
+# marks its tables of addresses read-only where it means "read-only once
+# relocated", as GNU ld takes it: mold then writes text relocations into the
+# game, and lld refuses to link it at all. GNU ld is the slower of them, by a
+# fraction of a second on a link this size.
+if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
+  if(NOT DEV_LINKER STREQUAL "auto")
+    message(WARNING "DEV_LINKER ${DEV_LINKER} does not link tcc's code right "
+      "(README.md, \"tcc\"); linking with GNU ld instead.")
+  endif()
+  set(_dev_linkers bfd)
+endif()
+
 # check_linker_flag() links a test program with the flag, which is the question
 # that matters: finding the binary is not enough. GCC's -fuse-ld=lld wants an
 # `ld.lld` on PATH, not just `lld`, and MSYS2 ships one without the other.
@@ -45,7 +59,9 @@ endforeach()
 # Nothing usable here. auto is a speed setting, and a speed setting that stops a
 # build is worse than a slow build. An explicit choice warns instead, so you
 # know you did not get it.
-if(DEV_LINKER STREQUAL "auto")
+if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
+  message(WARNING "GNU ld (bfd) does not link here; using the platform default.")
+elseif(DEV_LINKER STREQUAL "auto")
   message(STATUS "DEV_LINKER: the platform default (no faster one links here)")
 else()
   message(WARNING "DEV_LINKER ${DEV_LINKER} cannot link here; using the platform default.")

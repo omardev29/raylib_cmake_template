@@ -132,6 +132,25 @@ links there:
 | openSUSE | `libdrm-devel libgbm-devel Mesa-libEGL-devel Mesa-libGLESv2-devel libatomic1` |
 | Alpine | `libatomic`, as `mesa-dev` brings the rest |
 
+`DEV_C_COMPILER "tcc"`, for a debug build whose C compiles in about a second
+("tcc" below), needs tcc itself, on top of the line for your distribution, and
+an x86-64 PC:
+
+| | `DEV_C_COMPILER "tcc"` also needs |
+|---|---|
+| Debian, Ubuntu | `tcc` |
+| Arch | `tcc` |
+| Alpine | `tcc tcc-libs-static`: `tcc` alone cannot link anything, as its runtime library is in the second |
+| Fedora, openSUSE | not packaged: build it from source, as below |
+
+Building it takes seconds, with the compiler and make you already have and git
+to fetch it, and it installs under `/usr/local`:
+
+```bash
+git clone https://repo.or.cz/tinycc.git
+cd tinycc && ./configure && make && sudo make install
+```
+
 `make win`, the Windows build made on Linux ("Windows, from Linux" below),
 needs MinGW-w64 — GCC built to make Windows programs — besides make, CMake and
 Ninja: not your Linux compiler, nor any of the X11 packages above. One package
@@ -228,9 +247,10 @@ set(CMAKE_C_STANDARD 17)         # 99 | 11 | 17 | 23
 set(CMAKE_CXX_STANDARD 20)       # 11 | 14 | 17 | 20 | 23 | 26
 set(RAYLIB_DISABLED_MODULES "")  # any of: rshapes rtextures rtext rmodels raudio
 set(WINDOWS_BACKEND "glfw")      # glfw | win32 | rgfw
-set(LINUX_BACKEND "glfw")        # glfw | rgfw
+set(LINUX_BACKEND "glfw")        # glfw | rgfw | drm
 set(LINUX_WAYLAND OFF)           # ON: GLFW's native Wayland backend
-set(DEV_COMPILER "default")      # default | clang | gcc | mingw | msvc
+set(DEV_C_COMPILER "default")    # default | clang | gcc | mingw | msvc | tcc
+set(DEV_CPP_COMPILER "default")  # default | clang | gcc | mingw | msvc
 set(DEV_LINKER "auto")           # auto | mold | lld | default
 ```
 
@@ -252,12 +272,30 @@ a typo stops the build with a message that names the setting.
   younger; `drm` runs on a text console with no desktop at all ("A text console
   (DRM)"). Switching is safe in an existing build: the choice is worked out
   again on every configure.
-- `DEV_COMPILER`, `DEV_LINKER` → your local compiler and linker, **debug preset
-  only**. `release`, `web` and `windows` build in directories of their own with
-  the platform's defaults, so nothing here can change what you ship. `mold` is worth
-  having on PATH on Linux; it makes the link almost free. Going back to
-  `DEV_COMPILER "default"` needs a `make clean` — CMake cannot un-pick a
-  compiler, and the build tells you so instead of quietly keeping the old one.
+- `DEV_C_COMPILER`, `DEV_CPP_COMPILER`, `DEV_LINKER` → your local compilers and
+  linker, **debug preset only**. `release`, `web` and `windows` build in
+  directories of their own with the platform's defaults, so nothing here can
+  change what you ship. The C compiler builds raylib, GLFW and your `.c` files,
+  the C++ one your `.cpp` files, and they need not be the same: Clang for the C
+  and GCC for the C++ works, and so does tcc for the C ("tcc", below). `mold`
+  is worth having on PATH on Linux; it makes the link almost free. Going back
+  to `"default"` needs a `make clean` — CMake cannot un-pick a compiler, and
+  the build tells you so instead of quietly keeping the old one.
+
+Every build starts by naming the compilers it really got:
+
+```
+===INITIALIZING DEBUG BUILD WITH GCC===
+===INITIALIZING DEBUG BUILD WITH TCC (C) AND GCC (C++)===
+===INITIALIZING RELEASE BUILD WITH MINGW===
+```
+
+They are named by what they are, not by what they are called. When CMake
+configures, it compiles a test file with each compiler and works out which one
+it really is, and the build holds that against `config.cmake`: a `gcc` that
+turns out to be Clang — as it does on macOS — stops the configure with a message
+rather than building under the wrong name. Ninja's line just above the banner
+gives each compiler's path.
 
 ### C and C++ standards
 
@@ -282,10 +320,71 @@ MinGW's GCC 13), Clang 18 and Emscripten 6.0, in C and in C++, with raylib-cpp
 too. GCC 13 stops at C++26, as the table says it should. The MSVC column is
 CMake's own table.
 
+tcc ("tcc", below) is a C compiler only, and has C99 and C11: C17, which is
+C11 with its defects fixed and nothing new, compiles as tcc's C11, and C23 stops
+the configure.
+
 Below C99 and C++11, `raylib.h` refuses to compile (under C++98 it stops with
 `#error`), so `config.cmake` does not accept them. raylib-cpp works from C++11
 up. If you are unsure, keep the defaults, C17 and C++20: every compiler above
 does them.
+
+### tcc
+
+`DEV_C_COMPILER "tcc"` builds raylib, GLFW and your `.c` files with
+[tcc](https://bellard.org/tcc/), the Tiny C Compiler, and leaves your `.cpp`
+files to `DEV_CPP_COMPILER`:
+
+```cmake
+set(DEV_C_COMPILER "tcc")
+set(DEV_CPP_COMPILER "default")  # or gcc, or clang: tcc does no C++
+```
+
+tcc compiles C many times faster than GCC — raylib and GLFW in about a second —
+because it optimizes nothing at all. That makes it a compiler for the edit and
+run loop, and for nothing else. The `release`, `web` and `windows` builds never
+use it, whatever `config.cmake` says, and a release build that finds tcc
+anyway, through `CC=tcc` in your environment, stops and says so. And it is for
+x86-64 Linux only. tcc writes ELF object files wherever it runs, which the
+linkers of Windows and macOS do not read; and on 64-bit ARM, miniaudio, which
+raylib's audio is built on, uses NEON intrinsics, which tcc does not have.
+"Setting up" has the package for each distribution.
+
+What is different from a GCC or Clang build:
+
+- **The debugger sees little of tcc's code.** tcc's debug information is line
+  numbers only, in the old stabs format. A breakpoint on a line of raylib or of
+  your C code stops there, and backtraces go through it, but there are no
+  variables to look at and no stepping from line to line. Your `.cpp` code
+  debugs as usual; to debug C code, switch `DEV_C_COMPILER` back for a while.
+  Newer tcc can write DWARF too, but linked by anything but tcc itself, its
+  DWARF credits every function of a file to that file's first one, so the
+  build keeps to stabs.
+- **A C++ exception cannot cross tcc's code.** One thrown in a callback that
+  raylib calls, such as a `SetTraceLogCallback()` or `SetLoadFileDataCallback()`
+  one, ends the game with `std::terminate` instead of reaching a `catch` around
+  the raylib call: tcc's code has no unwind tables. Newer tcc writes them, but
+  wrong, and GNU ld refuses them, so the build turns them off.
+- **C99 and C11 only** ("C and C++ standards", above). C17 compiles as C11, and
+  `__STDC_VERSION__` says `201112L`.
+- **GNU ld links the game**, never the mold or lld that `DEV_LINKER` would pick.
+  mold and lld drop tcc's line numbers, and newer tcc marks some of its data in
+  a way only GNU ld takes as meant: mold then has the game patch its own
+  read-only memory at every start, and lld refuses to link it. GNU ld takes a
+  fraction of a second longer.
+- **The C++ compiler links it,** even when `src/` has no `.cpp` at all.
+
+The rest is `cmake/tcc.cmake`, which only runs when the C compiler is tcc (the
+GNU ld rule is in `cmake/dev_linker.cmake`, next to the other linkers). It
+tells CMake what CMake does not know about tcc: how to ask it which headers a
+file includes — without that, editing a header would recompile nothing — and
+which flag selects each C standard. It links tcc's runtime library,
+`libtcc1.a`, which tcc adds when it links and GCC and Clang have never heard
+of: functions tcc's code calls for what GCC does inline, such as reading a
+`va_arg`. The game links a copy, in `build/tcc/`, with the unwind tables taken
+out. And it covers two gaps of tcc 0.9.27, the one Debian and Ubuntu ship: it
+cannot parse glibc's `<regex.h>`, which GLFW includes, and its `libtcc1.a` has
+no `__builtin_clz()`, which raylib calls, so the copy gets one.
 
 ## Resources
 
@@ -694,10 +793,10 @@ only things that are not negotiable:
 | Section | What it does | Changing it |
 |---|---|---|
 | top | reads `config.cmake`, checks it, defaults to a Debug build | New settings go in `config.cmake`, their checks in `cmake/check_config.cmake`. |
-| toolchain | `DEV_COMPILER` and `DEV_LINKER` | Keep the order (rule 1). Never use them? Delete both includes, both files, and their settings and checks. |
-| for every target | standards, static linking, the MSVC runtime, `compile_commands.json`, ccache, production optimization | Flags for every target go here (rule 2). ccache can go. |
-| raylib | backend, Wayland, disabled modules, raylib's warnings | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
-| your game | sources, `include/`, libraries, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
+| toolchain | `DEV_C_COMPILER`, `DEV_CPP_COMPILER` and `DEV_LINKER`; the check of what `project()` found, and the banner; tcc | Keep the order (rule 1). Never use them? Delete the includes, the files, their settings and checks, and the `add_dependencies()` on `banner`. |
+| for every target | standards, static linking, the MSVC runtime, `compile_commands.json`, ccache, `-O0` in debug, production optimization | Flags for every target go here (rule 2; "Compiler flags", below). ccache can go. |
+| raylib | backend, Wayland, disabled modules, raylib's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
+| your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
 | run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve` and `win-run` out of the Makefile too. |
 
@@ -711,6 +810,49 @@ Some things look removable and are not:
   code out.
 - **`-static` on MinGW**, and **`CMAKE_MSVC_RUNTIME_LIBRARY`**: without them the
   release needs DLLs that a player's machine does not have.
+
+### Compiler flags
+
+The debug build compiles every target — raylib, GLFW and your game — with
+`-g -O0`: debug information, and no optimization at all, so the debugger shows
+every variable and stops on every line. That is two lines in the "for every
+target" section:
+
+```cmake
+set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+```
+
+Change them there. `-Og` still debugs well and runs noticeably faster, `-O2`
+much faster again, at the price of variables the debugger reports as
+"optimized out". MSVC is left out of those lines because its Debug already has
+`/Od`, its `-O0`; tcc ignores the level, having nothing to turn off.
+
+The release flags are CMake's own for the Release build type,
+`CMAKE_C_FLAGS_RELEASE` and `CMAKE_CXX_FLAGS_RELEASE` (`-O3 -DNDEBUG`, and
+`/O2 /Ob2 /DNDEBUG` with MSVC), plus the production block right below the debug
+lines, which "How optimized is a release build?" goes through. To replace
+them, set them in the same place:
+
+```cmake
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+```
+
+To add a flag to one target only, add it after the target exists:
+
+```cmake
+target_compile_options(${GAME_NAME} PRIVATE -O2)  # your game: in "your game"
+target_compile_options(raylib PRIVATE -O2)        # raylib: after add_subdirectory()
+```
+
+Options added like this come after the build type's on the command line, and
+with GCC and Clang the last `-O` wins. For every target at once, use
+`add_compile_options()` in "for every target", above every target (rule 2).
+
+Not on the command line: `cmake -DCMAKE_C_FLAGS_DEBUG=...` sets the cache, and
+the `set()` in `CMakeLists.txt` overrides the cache on every configure. To see
+the command each file was compiled with, look it up in
+`build/compile_commands.json`, or build with `cmake --build --preset debug --verbose`.
 
 ## Updating raylib
 
@@ -830,7 +972,8 @@ your code now.
 config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
 CMakePresets.json       the four builds: debug, release, web and windows
-cmake/                  check_config.cmake, DEV_COMPILER and DEV_LINKER, and
+cmake/                  check_config.cmake; dev_compiler.cmake, compilers.cmake,
+                        tcc.cmake and dev_linker.cmake, for the toolchain; and
                         windows_cross.cmake, for the Windows build from Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
 include/                your headers
@@ -848,10 +991,12 @@ the build notices a new file on its own.
 `CMakeLists.txt` runs in the order CMake needs things, and the comments say why
 at each step. The parts worth slowing down for:
 
-- **Before and after `project()`.** The compiler is chosen before it, because
-  `project()` is where CMake locks the compiler in (`cmake/dev_compiler.cmake`).
-  The linker is chosen after it, because checking that a linker works means
-  compiling a test program (`cmake/dev_linker.cmake`).
+- **Before and after `project()`.** The compilers are chosen before it, because
+  `project()` is where CMake locks them in (`cmake/dev_compiler.cmake`), and
+  checked right after it, by what CMake found each one to be
+  (`cmake/compilers.cmake`). The linker is chosen after it too, because
+  checking that a linker works means compiling a test program
+  (`cmake/dev_linker.cmake`).
 - **Normal variables and the cache.** raylib's `PLATFORM` is set as a plain
   variable, recomputed on every configure, so a backend you switched away from
   cannot linger. The compiler is the opposite case: only a cache entry set with
@@ -869,6 +1014,10 @@ at each step. The parts worth slowing down for:
   directory, so switching between them never rebuilds the others. The
   `windows` one has a `condition` that hides it on Windows, where it has
   nothing to do.
+- **Teaching CMake a compiler.** `cmake/tcc.cmake` is what CMake has to be told
+  about a compiler it barely knows: how to ask it for header dependencies,
+  which flag selects each C standard, and the runtime library that only the
+  compiler itself used to add to a link.
 - **Toolchain files.** The web and windows presets each name one: a file CMake
   reads before `project()`, which says what system the build is for and which
   compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is

@@ -19,9 +19,11 @@ endif()
 
 # --- toolchain ------------------------------------------------------------------
 
-include(cmake/dev_compiler.cmake) # DEV_COMPILER: has to come before project()
+include(cmake/dev_compiler.cmake) # DEV_C_COMPILER, DEV_CPP_COMPILER: before project()
 project(${GAME_NAME} LANGUAGES C CXX)
-include(cmake/dev_linker.cmake)   # DEV_LINKER: has to come after it
+include(cmake/compilers.cmake)    # checks what project() found, and announces it
+include(cmake/tcc.cmake)          # what tcc's code needs, when tcc compiles the C
+include(cmake/dev_linker.cmake)   # DEV_LINKER: has to come after project()
 
 # --- for every target -----------------------------------------------------------
 
@@ -50,9 +52,20 @@ if(CCACHE_PROGRAM)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
-# Production builds (the release and web presets): optimized as far as a binary
-# can go and still run on any machine — README.md says what is on and what is
-# deliberately left off. -O3 itself comes from the Release build type.
+# The debug build optimizes nothing: -O0, in every target — raylib and GLFW as
+# much as your game — so the debugger shows every variable and stops on every
+# line. GCC and Clang would use -O0 anyway, and MSVC's Debug already has /Od;
+# it is written out to be one edit away (README.md, "Compiler flags"): -Og
+# still debugs well and runs faster, -O2 much faster. tcc ignores it, having
+# nothing to turn off.
+if(NOT MSVC)
+  set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+endif()
+
+# Production builds (the release, web and windows presets): optimized as far as
+# a binary can go and still run on any machine — README.md says what is on and
+# what is deliberately left off. -O3 itself comes from the Release build type.
 if(PRODUCTION_BUILD)
   if(EMSCRIPTEN)
     # Size first: on the web, the download is what the player waits for. So -Oz
@@ -149,6 +162,13 @@ else()
   target_compile_options(raylib PRIVATE -w)
 endif()
 
+# Every build starts with ===INITIALIZING ... BUILD WITH ...=== (from
+# cmake/compilers.cmake): raylib and GLFW wait for it, and your game for them.
+add_dependencies(raylib banner)
+if(TARGET glfw)
+  add_dependencies(glfw banner)
+endif()
+
 # --- your game ------------------------------------------------------------------
 
 add_executable(${GAME_NAME})
@@ -165,6 +185,14 @@ target_include_directories(${GAME_NAME} PRIVATE include)
 # README.md, "Adding a library".
 target_link_libraries(${GAME_NAME} PRIVATE raylib)
 target_include_directories(${GAME_NAME} SYSTEM PRIVATE thirdparty/raylib-cpp/include)
+
+# With tcc compiling the C, the C++ compiler links the game even when src/ has
+# no .cpp at all. The build's link options are GCC's and Clang's: tcc's own
+# linker ignores DEV_LINKER's -fuse-ld without a word, and 0.9.27's refuses
+# the -z noexecstack that cmake/tcc.cmake adds.
+if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
+  set_target_properties(${GAME_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+endif()
 
 # Your warnings. raylib's are silenced above, so whatever shows up is yours.
 if(MSVC)
@@ -214,6 +242,7 @@ if(PRODUCTION_BUILD AND NOT EMSCRIPTEN)
             "$<TARGET_FILE_DIR:${GAME_NAME}>/resources"
     VERBATIM)
   add_dependencies(${GAME_NAME} copy_resources)
+  add_dependencies(copy_resources banner) # so the banner still comes first
 endif()
 
 # --- web ------------------------------------------------------------------------
