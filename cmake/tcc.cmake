@@ -75,7 +75,8 @@ add_compile_options("$<$<COMPILE_LANGUAGE:C>:-fno-asynchronous-unwind-tables>")
 # write it for a plain -g, but its DWARF has the fault its unwind tables have:
 # linked by another linker, every function of a file sits where the file's
 # first one does, and a breakpoint on a function stops in some other one. Its
-# stabs come out right. 0.9.27 has stabs only, and takes -gstabs as -g; like
+# stabs come out right, though gdb 18 no longer reads them, and goes by the
+# function names alone. 0.9.27 has stabs only, and takes -gstabs as -g; like
 # -g, it turns the debug information on.
 add_compile_options("$<$<COMPILE_LANGUAGE:C>:-gstabs>")
 

@@ -383,10 +383,13 @@ build setting can change that:
 What is different from a GCC or Clang build:
 
 - **The debugger sees little of tcc's code.** tcc's debug information is line
-  numbers only, in the old stabs format. A breakpoint on a line of raylib or of
-  your C code stops there, and backtraces go through it, but there are no
-  variables to look at and no stepping from line to line. Your `.cpp` code
-  debugs as usual; to debug C code, switch `DEV_C_COMPILER` back for a while.
+  numbers only, in the old stabs format. Up to gdb 17, a breakpoint on a line
+  of raylib or of your C code stops there. gdb 18 and later read no stabs
+  ("stabs debug information is not supported"), and only a breakpoint on a
+  function stops in tcc's code. Backtraces go through it with either, by
+  function name, but there are no variables to look at and no stepping from
+  line to line. Your `.cpp` code debugs as usual; to debug C code, switch
+  `DEV_C_COMPILER` back for a while.
   Newer tcc can write DWARF too, and can be built to write it for a plain
   `-g`, but linked by anything but tcc itself, its DWARF credits every
   function of a file to that file's first one: a breakpoint on a function
