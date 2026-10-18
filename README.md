@@ -223,43 +223,45 @@ Each of these builds a native `.exe`, and the Makefile works in all of them,
 typed in cmd.exe, PowerShell or MSYS2's shell alike: its recipes are cmake
 commands and nothing else.
 
-**Scoop and MinGW**, the shortest road. With [Scoop](https://scoop.sh):
+**Visual Studio and clang-cl**, the way this template builds for Windows when
+it can. Install Visual Studio, or just its Build Tools, with the "Desktop
+development with C++" workload, which brings CMake and Ninja too, and tick one
+of that workload's optional parts: **"C++ Clang tools for Windows"**. Get make
+from [Scoop](https://scoop.sh) (`scoop install make`), open the **x64 Native
+Tools Command Prompt for VS** from the Start menu, and in the project's folder:
 
-```powershell
-scoop install make cmake ninja mingw
+```bat
 make run
 ```
 
-`mingw` is GCC for Windows.
+There is nothing else to set, in that prompt or in `config.cmake`: every build,
+`make run` and `make rel` alike, takes clang-cl, and starts by saying so:
 
-**Visual Studio (MSVC).** Install Visual Studio, or just its Build Tools, with
-the "Desktop development with C++" workload, which brings CMake and Ninja too.
-Open the **x64 Native Tools Command Prompt for VS** — that is what puts the
-compiler on PATH, and the plain Developer prompts set up 32-bit x86 unless
-told otherwise — and run `make run` (after `scoop install make`) or the two
-cmake commands from Start. Visual Studio can also open the folder directly,
-because it reads `CMakePresets.json`.
-
-**clang-cl**, Clang with MSVC's command line, building for Visual Studio's
-own C runtime and libraries. Add "C++ Clang Compiler for Windows" to the
-workload above, in the Visual Studio Installer — or install LLVM itself and
-keep the Build Tools for Microsoft's part. In the same x64 prompt, set
-`DEV_C_COMPILER` and `DEV_CPP_COMPILER` to `"clang-cl"` in `config.cmake` and
-`make run`: the build finds Visual Studio's clang-cl even where the prompt
-leaves it off PATH. The release takes its compilers from `CC` and `CXX`, which
-CMake reads when it first configures `build/release/` (so `make clean` first,
-if that was made with another compiler):
-
-```bat
-set CC=clang-cl
-set CXX=clang-cl
-make rel
+```
+===INITIALIZING DEBUG BUILD WITH CLANG-CL===
 ```
 
-With Visual Studio's own clang-cl and none on PATH, give both as
-`%VCINSTALLDIR%Tools\Llvm\x64\bin\clang-cl.exe` instead.
+The prompt is what puts the compiler, and Windows' own headers and libraries,
+where the build finds them. It has to be the x64 one: the plain Developer
+prompts set up 32-bit x86 unless told otherwise. clang-cl is Clang with MSVC's
+command line: it builds for Microsoft's own C runtime and C++ library, as MSVC
+does, so a library built with MSVC, which is how most Windows SDKs ship, links
+with your game as it is. Without the Clang tools, the same prompt builds with
+MSVC, Visual Studio's own compiler, and nothing else changes. Visual Studio
+can also open the folder directly, because it reads `CMakePresets.json`.
 
-**MSYS2.** In the **MSYS2 UCRT64** shell:
+Which compiler a Windows build gets when nothing names one: in Visual Studio's
+x64 prompt, clang-cl if "C++ Clang tools for Windows" is installed and MSVC if
+it is not; anywhere else, MinGW. clang-cl and MSVC take Windows' headers and
+libraries from that prompt, so outside one they are not tried. A build
+directory keeps what it got the first time, until `make clean`. To pick
+another: `DEV_C_COMPILER` and `DEV_CPP_COMPILER` in `config.cmake`, for the
+debug build, or `CC` and `CXX` before a build directory is first configured,
+for any build (`set CC=cl` and `set CXX=cl` in that prompt, for MSVC). LLVM's
+own installer works too, with the Build Tools kept for Microsoft's part: its
+clang-cl is taken when it comes first on PATH.
+
+**MSYS2 and MinGW.** In the **MSYS2 UCRT64** shell:
 
 ```bash
 pacman -S --needed make mingw-w64-ucrt-x86_64-gcc \
@@ -270,6 +272,17 @@ make run
 Use the UCRT64 shell and the `mingw-w64-ucrt-x86_64-` packages, which build
 Windows programs. MSYS2's plain `cmake` package builds for MSYS2's own POSIX
 layer instead of for Windows, which is not what you want.
+
+**Scoop and MinGW**, the lightest road: no Visual Studio at all. With
+[Scoop](https://scoop.sh), in PowerShell or cmd.exe — any but Visual Studio's
+prompt, where clang-cl or MSVC come first:
+
+```powershell
+scoop install make cmake ninja mingw
+make run
+```
+
+`mingw` is GCC for Windows.
 
 **WSL.** Inside WSL you are on Linux, so you install what that distribution
 needs — WSL's default is Ubuntu, so the Debian and Ubuntu line above — and
@@ -322,11 +335,13 @@ a typo stops the build with a message that names the setting.
 - `DEV_C_COMPILER`, `DEV_CPP_COMPILER`, `DEV_LINKER` → your local compilers and
   linker, **debug preset only**. `release`, `web` and the two `windows` ones
   build in directories of their own with the platform's defaults, so nothing
-  here can change what you ship. The C compiler builds raylib, GLFW and your
-  `.c` files, the C++ one your `.cpp` files, and they need not be the same:
-  Clang for the C and GCC for the C++ works, and so does tcc for the C ("tcc",
-  below). `msvc` and `clang-cl` build for MSVC's own runtime, on Windows, and
-  each pairs with itself only ("Setting up" has clang-cl there). `mold` is
+  here can change what you ship. `"default"` is that same default: on Windows,
+  clang-cl in Visual Studio's x64 prompt when its Clang tools are installed,
+  MSVC there when they are not, and MinGW anywhere else ("Setting up"). The C
+  compiler builds raylib, GLFW and your `.c` files, the C++ one your `.cpp`
+  files, and they need not be the same: Clang for the C and GCC for the C++
+  works, and so does tcc for the C ("tcc", below). `msvc` and `clang-cl` build
+  for MSVC's own runtime, on Windows, and each pairs with itself only. `mold` is
   worth having on PATH on Linux; it makes the link almost free. Going back to
   `"default"` needs a `make clean` — CMake cannot un-pick a compiler, and the
   build tells you so instead of quietly keeping the old one.
@@ -973,7 +988,7 @@ only things that are not negotiable:
 | Section | What it does | Changing it |
 |---|---|---|
 | top | reads `config.cmake`, checks it, defaults to a Debug build | New settings go in `config.cmake`, their checks in `cmake/check_config.cmake`. |
-| toolchain | `DEV_C_COMPILER`, `DEV_CPP_COMPILER` and `DEV_LINKER`; the check of what `project()` found, and the banner; tcc | Keep the order (rule 1). Never use them? Delete the includes, the files, their settings and checks, and the `add_dependencies()` on `banner`. |
+| toolchain | `DEV_C_COMPILER`, `DEV_CPP_COMPILER` and `DEV_LINKER`; Windows' default compiler; the check of what `project()` found, and the banner; tcc | Keep the order (rule 1). Never use them? Delete the includes, the files, their settings and checks, and the `add_dependencies()` on `banner`. |
 | for every target | standards, static linking, the MSVC runtime, `compile_commands.json`, ccache, `-O0` in debug, production optimization | Flags for every target go here (rule 2; "Compiler flags", below). ccache can go. |
 | raylib | backend, Wayland, disabled modules, raylib's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
@@ -1154,9 +1169,10 @@ your code now.
 config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
 CMakePresets.json       the five builds: debug, release, web and the two windows
-cmake/                  check_config.cmake; dev_compiler.cmake, compilers.cmake,
-                        tcc.cmake (with tcc_fixup.c) and dev_linker.cmake, for
-                        the toolchain; and windows_cross.cmake (MinGW-w64) and
+cmake/                  check_config.cmake; dev_compiler.cmake,
+                        default_compiler.cmake, compilers.cmake, tcc.cmake (with
+                        tcc_fixup.c) and dev_linker.cmake, for the toolchain;
+                        and windows_cross.cmake (MinGW-w64) and
                         windows_clang_cl.cmake, for the Windows builds from
                         Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled

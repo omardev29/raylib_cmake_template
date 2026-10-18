@@ -70,7 +70,7 @@ set(_dev_CXX_mingw x86_64-w64-mingw32-g++ g++)
 set(_dev_CXX_msvc cl)
 set(_dev_CXX_clang-cl clang-cl)
 
-# Visual Studio's own clang-cl ("C++ Clang Compiler for Windows") sits next to
+# Visual Studio's own clang-cl ("C++ Clang tools for Windows") sits next to
 # MSVC, where its command prompts do not necessarily put it on PATH: there,
 # after PATH, from VCINSTALLDIR, which those prompts set.
 if(DEFINED ENV{VCINSTALLDIR})

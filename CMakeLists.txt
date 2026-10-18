@@ -19,11 +19,12 @@ endif()
 
 # --- toolchain ------------------------------------------------------------------
 
-include(cmake/dev_compiler.cmake) # DEV_C_COMPILER, DEV_CPP_COMPILER: before project()
+include(cmake/dev_compiler.cmake)     # DEV_C_COMPILER, DEV_CPP_COMPILER: before project()
+include(cmake/default_compiler.cmake) # or else, on Windows: clang-cl, MSVC, then MinGW
 project(${GAME_NAME} LANGUAGES C CXX)
-include(cmake/compilers.cmake)    # checks what project() found, and announces it
-include(cmake/tcc.cmake)          # what tcc's code needs, when tcc compiles the C
-include(cmake/dev_linker.cmake)   # DEV_LINKER: has to come after project()
+include(cmake/compilers.cmake)        # checks what project() found, and announces it
+include(cmake/tcc.cmake)              # what tcc's code needs, when tcc compiles the C
+include(cmake/dev_linker.cmake)       # DEV_LINKER: has to come after project()
 
 # --- for every target -----------------------------------------------------------
 

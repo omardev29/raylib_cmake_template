@@ -65,7 +65,9 @@ set(LINUX_WAYLAND OFF)
 
 # Your machine, for the debug preset only. The release, web and windows presets
 # always build with the platform's defaults, so nothing here can change what
-# you ship.
+# you ship. "default" is that same default. On Windows it is clang-cl in Visual
+# Studio's x64 prompt when "C++ Clang tools for Windows" is installed, MSVC
+# there when it is not, and MinGW anywhere else: README.md, "Setting up".
 #
 #   DEV_C_COMPILER    default | clang | clang-cl | gcc | mingw | msvc | tcc
 #   DEV_CPP_COMPILER  default | clang | clang-cl | gcc | mingw | msvc
