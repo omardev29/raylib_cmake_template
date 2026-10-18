@@ -363,12 +363,22 @@ each kind gets wrong:
 | `__builtin_clz()`, which raylib calls | missing from its `libtcc1.a`; the build adds one | there |
 | unwind tables | none | wrong for any linker but tcc's own; the build turns them off, and takes them out of `libtcc1.a` |
 | its tables of addresses, `.data.ro` | — | right with GNU ld only, which links the game |
-| debug information | stabs | stabs; its DWARF is wrong once linked |
+| debug information | stabs | stabs, unless built to write DWARF, which is wrong once linked; the build asks for stabs |
 
 `tcc -v` tells them apart, but the 2017 release says 0.9.27 too, and that one
 is too old. It does not build on a current glibc, and built anyway, without its
 bounds checker, its games run but their debug information comes out broken:
 gdb crashes reading it.
+
+0.9.27 also refuses two things in your own C code that 0.9.28rc takes, and no
+build setting can change that:
+
+- a file that starts with a UTF-8 byte order mark, which some editors write:
+  save it without one;
+- an array of structs whose size is left out and that more than one expression
+  fills, as in `Color colors[] = { RED, GOLD };` (raylib's colors are compound
+  literals). It stops with `index too large`; with the size written out,
+  `Color colors[2]`, it compiles.
 
 What is different from a GCC or Clang build:
 
@@ -377,9 +387,10 @@ What is different from a GCC or Clang build:
   your C code stops there, and backtraces go through it, but there are no
   variables to look at and no stepping from line to line. Your `.cpp` code
   debugs as usual; to debug C code, switch `DEV_C_COMPILER` back for a while.
-  Newer tcc can write DWARF too, but linked by anything but tcc itself, its
-  DWARF credits every function of a file to that file's first one, so the
-  build keeps to stabs.
+  Newer tcc can write DWARF too, and can be built to write it for a plain
+  `-g`, but linked by anything but tcc itself, its DWARF credits every
+  function of a file to that file's first one: a breakpoint on a function
+  stops in some other one. So the build asks for stabs, with `-gstabs`.
 - **A C++ exception cannot cross tcc's code.** One thrown in a callback that
   raylib calls, such as a `SetTraceLogCallback()` or `SetLoadFileDataCallback()`
   one, ends the game with `std::terminate` instead of reaching a `catch` around
@@ -394,11 +405,16 @@ What is different from a GCC or Clang build:
   fraction of a second longer.
 - **The C++ compiler links it,** even when `src/` has no `.cpp` at all.
 
+When tcc cannot build something, code of yours or a newer raylib, set
+`DEV_C_COMPILER` back to `gcc` or `clang`: nothing else depends on it, and the
+release never did.
+
 The rest is `cmake/tcc.cmake`, which only runs when the C compiler is tcc (the
 GNU ld rule is in `cmake/dev_linker.cmake`, next to the other linkers). It
 tells CMake what CMake does not know about tcc: how to ask it which headers a
-file includes — without that, editing a header would recompile nothing — and
-which flag selects each C standard. It links tcc's runtime library,
+file includes — without that, editing a header would recompile nothing —
+which flag selects each C standard, and which of the C features CMake knows by
+name tcc has, for libraries that ask for one. It links tcc's runtime library,
 `libtcc1.a`, which tcc adds when it links and GCC and Clang have never heard
 of: functions tcc's code calls for what GCC does inline, such as reading a
 `va_arg`. The game links a copy, in `build/tcc/`, with the unwind tables taken
@@ -930,9 +946,10 @@ To move to a newer raylib, with your work committed:
    What still fits is applied. Each part that does not is left next to its file
    as a `.rej`, to redo by hand, or to drop if the new raylib no longer needs
    it. Then delete the `.rej` files and `raylib-patches.diff`.
-5. Build every preset you use — `make`, `make rel`, `make web` — and run them.
-   If one no longer builds, the last table in this section says what
-   `CMakeLists.txt` relies on.
+5. Build every preset you use — `make`, `make rel`, `make web` — and run them,
+   and with `DEV_C_COMPILER "tcc"` too if you use it: new raylib code can be
+   more than tcc can compile while GCC and Clang take it. If one no longer
+   builds, the last table in this section says what `CMakeLists.txt` relies on.
 6. Bring this section up to date — the version, the table, the list below — and
    `THIRD_PARTY_LICENSES.md`.
 7. Update raylib-cpp too, once a release for the new raylib is out. It is
@@ -1035,8 +1052,8 @@ at each step. The parts worth slowing down for:
   nothing to do.
 - **Teaching CMake a compiler.** `cmake/tcc.cmake` is what CMake has to be told
   about a compiler it barely knows: how to ask it for header dependencies,
-  which flag selects each C standard, and the runtime library that only the
-  compiler itself used to add to a link.
+  which flag selects each C standard and which C features it has, and the
+  runtime library that only the compiler itself used to add to a link.
 - **Toolchain files.** The web and windows presets each name one: a file CMake
   reads before `project()`, which says what system the build is for and which
   compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is

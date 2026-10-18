@@ -30,17 +30,31 @@ set(CMAKE_DEPFILE_FLAGS_C "-MD -MF <DEP_FILE>")
 
 # C standards. CMake knows none for tcc either and passes it no -std= at all,
 # so every target would get tcc's default, C99, whatever it asked for. tcc has
-# C99 and C11, and C17 is C11 with its defects fixed and nothing new, so it
-# gets tcc's C11 too. -std=c11 even where CMake would ask for GNU extensions:
-# tcc keeps its own in every mode, and 0.9.27 ignores -std=gnu11. C23 tcc does
-# not have, and asking for it stops the configure with CMake's own message.
+# C99, which C90 code compiles in, and C11; C17 is C11 with its defects fixed
+# and nothing new, so it gets tcc's C11 too. -std=c11 even where CMake would ask
+# for GNU extensions: tcc keeps its own in every mode, and 0.9.27 ignores
+# -std=gnu11. C23 tcc does not have, and asking for it stops the configure with
+# CMake's own message.
 set(CMAKE_C_STANDARD_DEFAULT 99)
-set(CMAKE_C99_STANDARD_COMPILE_OPTION "")
-set(CMAKE_C99_EXTENSION_COMPILE_OPTION "")
+foreach(std 90 99)
+  set(CMAKE_C${std}_STANDARD_COMPILE_OPTION "")
+  set(CMAKE_C${std}_EXTENSION_COMPILE_OPTION "")
+endforeach()
 foreach(std 11 17)
   set(CMAKE_C${std}_STANDARD_COMPILE_OPTION "-std=c11")
   set(CMAKE_C${std}_EXTENSION_COMPILE_OPTION "-std=c11")
 endforeach()
+
+# The same for the C features CMake knows by name, which a library you add may
+# ask for with target_compile_features(): without these, CMake stops on any of
+# them, c_std_99 included, as unknown to tcc. Each goes with the standard that
+# brought it.
+set(CMAKE_C90_COMPILE_FEATURES c_std_90 c_function_prototypes)
+set(CMAKE_C99_COMPILE_FEATURES c_std_99 c_restrict c_variadic_macros)
+set(CMAKE_C11_COMPILE_FEATURES c_std_11 c_static_assert)
+set(CMAKE_C17_COMPILE_FEATURES c_std_17)
+set(CMAKE_C_COMPILE_FEATURES ${CMAKE_C90_COMPILE_FEATURES} ${CMAKE_C99_COMPILE_FEATURES}
+    ${CMAKE_C11_COMPILE_FEATURES} ${CMAKE_C17_COMPILE_FEATURES})
 
 # glibc's <regex.h>, which GLFW includes, declares regexec() with an array
 # parameter sized by the parameter before it, and tcc 0.9.27, the one Debian
@@ -56,6 +70,14 @@ add_compile_definitions("$<$<COMPILE_LANGUAGE:C>:__STDC_NO_VLA__=1>")
 # gold link them, wrong. tcc 0.9.27 writes none, and this flag, which 0.9.27
 # ignores, makes a newer tcc write none either.
 add_compile_options("$<$<COMPILE_LANGUAGE:C>:-fno-asynchronous-unwind-tables>")
+
+# Debug information: stabs. Newer tcc writes DWARF too, and can be built to
+# write it for a plain -g, but its DWARF has the fault its unwind tables have:
+# linked by another linker, every function of a file sits where the file's
+# first one does, and a breakpoint on a function stops in some other one. Its
+# stabs come out right. 0.9.27 has stabs only, and takes -gstabs as -g; like
+# -g, it turns the debug information on.
+add_compile_options("$<$<COMPILE_LANGUAGE:C>:-gstabs>")
 
 # tcc's runtime library, libtcc1.a: functions tcc's code calls for what GCC
 # does inline — reading a va_arg on x86-64, turning a double into an unsigned
