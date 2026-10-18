@@ -52,6 +52,22 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
+        },
+        {
+            "name": "windows-clang-cl",
+            "displayName": "Windows, from Linux (clang-cl)",
+            "inherits": "base",
+            "toolchainFile": "${sourceDir}/cmake/windows_clang_cl.cmake",
+            "binaryDir": "${sourceDir}/build/windows-clang-cl",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PRODUCTION_BUILD": "ON"
+            },
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         }
     ],
     "buildPresets": [
@@ -70,6 +86,10 @@
         {
             "name": "windows",
             "configurePreset": "windows"
+        },
+        {
+            "name": "windows-clang-cl",
+            "configurePreset": "windows-clang-cl"
         }
     ]
 }

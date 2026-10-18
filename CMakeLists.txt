@@ -39,7 +39,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(BUILD_SHARED_LIBS OFF)
 
 # MSVC: the static C runtime, so the .exe runs on a machine without the Visual
-# C++ redistributable. Every other compiler ignores it.
+# C++ redistributable. Every other compiler ignores it. Here and below, MSVC is
+# CMake's own variable, which clang-cl sets too: it takes MSVC's flags.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # build/compile_commands.json, which editors read to understand your code.

@@ -47,6 +47,8 @@ cmake --build --preset debug --target run
 | `make serve` | play the web build: emrun serves it and opens your browser |
 | `make win` | on Linux, compile the Windows build you ship, into `build/windows/` |
 | `make win-run` | play that Windows build here, under Wine |
+| `make win-clang-cl` | the same with clang-cl instead of MinGW, into `build/windows-clang-cl/` |
+| `make win-clang-cl-run` | play that one under Wine |
 | `make clean` | delete every build |
 
 Every recipe is a single CMake command, so the `Makefile` doubles as a cheat
@@ -173,6 +175,31 @@ Arch Linux ARM and Alpine do not.
 which all of them have for an x86-64 PC (for ARM and RISC-V, see "Windows,
 from Linux").
 
+`make win-clang-cl`, the same build made with clang-cl ("Windows, from Linux"),
+needs LLVM's own tools for Windows instead of MinGW-w64 — clang-cl, lld-link,
+llvm-lib, llvm-rc and llvm-mt — from LLVM 19 or newer, the oldest that the
+current Visual Studio's C++ library takes:
+
+| | `make win-clang-cl` needs |
+|---|---|
+| Debian 12, 13 | `clang-tools-19 lld-19 llvm-19` |
+| Ubuntu 24.04 | `clang-tools-20 lld-20 llvm-20`: its default LLVM, 18, is too old |
+| Ubuntu 26.04 | `clang lld llvm` |
+| Fedora | `clang lld llvm` |
+| Arch | `clang lld llvm` |
+| openSUSE | `clang lld llvm` |
+| Alpine | `clang22 lld22 llvm22` |
+
+They build LLVM for 64-bit ARM and RISC-V too, wherever they run there (Arch
+in its ARM and RISC-V ports), so the same packages do it on those. And it
+needs xwin, which downloads Microsoft's C runtime and Windows SDK for it, once
+("Windows, from Linux"). xwin is packaged by none of them: it is a Rust
+program, which `cargo install --locked xwin` builds into `~/.cargo/bin`, with
+Rust 1.88 or newer. Fedora, openSUSE, Alpine and Ubuntu 26.04 have one as
+`cargo`, Arch as `rust`; Debian's and Ubuntu 24.04's `cargo` is older, so
+there, use rustup — `sudo apt install rustup && rustup default stable` on
+Debian 13 and Ubuntu 24.04, [rustup.rs](https://rustup.rs) on Debian 12.
+
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
 (3.22), where `pip install cmake` gets a current one.
 
@@ -207,10 +234,30 @@ make run
 
 **Visual Studio (MSVC).** Install Visual Studio, or just its Build Tools, with
 the "Desktop development with C++" workload, which brings CMake and Ninja too.
-Open **Developer PowerShell for VS** — that is what puts the compiler on PATH —
-and run `make run` (after `scoop install make`) or the two cmake commands from
-Start. Visual Studio can also open the folder directly, because it reads
-`CMakePresets.json`.
+Open the **x64 Native Tools Command Prompt for VS** — that is what puts the
+compiler on PATH, and the plain Developer prompts set up 32-bit x86 unless
+told otherwise — and run `make run` (after `scoop install make`) or the two
+cmake commands from Start. Visual Studio can also open the folder directly,
+because it reads `CMakePresets.json`.
+
+**clang-cl**, Clang with MSVC's command line, building for Visual Studio's
+own C runtime and libraries. Add "C++ Clang Compiler for Windows" to the
+workload above, in the Visual Studio Installer — or install LLVM itself and
+keep the Build Tools for Microsoft's part. In the same x64 prompt, set
+`DEV_C_COMPILER` and `DEV_CPP_COMPILER` to `"clang-cl"` in `config.cmake` and
+`make run`: the build finds Visual Studio's clang-cl even where the prompt
+leaves it off PATH. The release takes its compilers from `CC` and `CXX`, which
+CMake reads when it first configures `build/release/` (so `make clean` first,
+if that was made with another compiler):
+
+```bat
+set CC=clang-cl
+set CXX=clang-cl
+make rel
+```
+
+With Visual Studio's own clang-cl and none on PATH, give both as
+`%VCINSTALLDIR%Tools\Llvm\x64\bin\clang-cl.exe` instead.
 
 **MSYS2.** In the **MSYS2 UCRT64** shell:
 
@@ -249,8 +296,8 @@ set(RAYLIB_DISABLED_MODULES "")  # any of: rshapes rtextures rtext rmodels raudi
 set(WINDOWS_BACKEND "glfw")      # glfw | win32 | rgfw
 set(LINUX_BACKEND "glfw")        # glfw | rgfw | drm
 set(LINUX_WAYLAND OFF)           # ON: GLFW's native Wayland backend
-set(DEV_C_COMPILER "default")    # default | clang | gcc | mingw | msvc | tcc
-set(DEV_CPP_COMPILER "default")  # default | clang | gcc | mingw | msvc
+set(DEV_C_COMPILER "default")    # default | clang | clang-cl | gcc | mingw | msvc | tcc
+set(DEV_CPP_COMPILER "default")  # default | clang | clang-cl | gcc | mingw | msvc
 set(DEV_LINKER "auto")           # auto | mold | lld | default
 ```
 
@@ -273,14 +320,16 @@ a typo stops the build with a message that names the setting.
   (DRM)"). Switching is safe in an existing build: the choice is worked out
   again on every configure.
 - `DEV_C_COMPILER`, `DEV_CPP_COMPILER`, `DEV_LINKER` → your local compilers and
-  linker, **debug preset only**. `release`, `web` and `windows` build in
-  directories of their own with the platform's defaults, so nothing here can
-  change what you ship. The C compiler builds raylib, GLFW and your `.c` files,
-  the C++ one your `.cpp` files, and they need not be the same: Clang for the C
-  and GCC for the C++ works, and so does tcc for the C ("tcc", below). `mold`
-  is worth having on PATH on Linux; it makes the link almost free. Going back
-  to `"default"` needs a `make clean` — CMake cannot un-pick a compiler, and
-  the build tells you so instead of quietly keeping the old one.
+  linker, **debug preset only**. `release`, `web` and the two `windows` ones
+  build in directories of their own with the platform's defaults, so nothing
+  here can change what you ship. The C compiler builds raylib, GLFW and your
+  `.c` files, the C++ one your `.cpp` files, and they need not be the same:
+  Clang for the C and GCC for the C++ works, and so does tcc for the C ("tcc",
+  below). `msvc` and `clang-cl` build for MSVC's own runtime, on Windows, and
+  each pairs with itself only ("Setting up" has clang-cl there). `mold` is
+  worth having on PATH on Linux; it makes the link almost free. Going back to
+  `"default"` needs a `make clean` — CMake cannot un-pick a compiler, and the
+  build tells you so instead of quietly keeping the old one.
 
 Every build starts by naming the compilers it really got:
 
@@ -288,6 +337,7 @@ Every build starts by naming the compilers it really got:
 ===INITIALIZING DEBUG BUILD WITH GCC===
 ===INITIALIZING DEBUG BUILD WITH TCC (C) AND GCC (C++)===
 ===INITIALIZING RELEASE BUILD WITH MINGW===
+===INITIALIZING RELEASE BUILD WITH CLANG-CL===
 ```
 
 They are named by what they are, not by what they are called. When CMake
@@ -307,18 +357,20 @@ GCC and Clang (`-std=gnu++20`, CMake's default); if the compiler cannot do it,
 the configure stops with CMake's own message rather than quietly using an older
 standard.
 
-| | GCC | Clang | MSVC | Emscripten |
-|---|---|---|---|---|
-| C 99, 11, 17 | yes | yes | yes (11 and 17 from VS 2019 16.8) | yes |
-| C 23 | yes | yes | CMake 4.2+ and VS 2022 17.9+ | yes |
-| C++ 11, 14, 17, 20 | yes | yes | yes (20 from VS 2019 16.11; there is no C++11 mode, you get 14) | yes |
-| C++ 23 | 11+ | 12+ | only as `/std:c++latest`, a preview | yes |
-| C++ 26 | 14+, with CMake 3.30+ | 17+, with CMake 3.27+ | no | CMake 3.27+ |
+| | GCC | Clang | MSVC | clang-cl | Emscripten |
+|---|---|---|---|---|---|
+| C 99, 11, 17 | yes | yes | yes (11 and 17 from VS 2019 16.8) | yes (there is no C99 mode, you get 17) | yes |
+| C 23 | yes | yes | CMake 4.2+ and VS 2022 17.9+ | CMake 4.1+ | yes |
+| C++ 11, 14, 17, 20 | yes | yes | yes (20 from VS 2019 16.11; there is no C++11 mode, you get 14) | yes (no C++11 mode either: 14) | yes |
+| C++ 23 | 11+ | 12+ | only as `/std:c++latest`, a preview | yes; before CMake 3.31 as `-std:c++latest`, the newest draft | yes |
+| C++ 26 | 14+, with CMake 3.30+ | 17+, with CMake 3.27+ | no | CMake 4.0+ | CMake 3.27+ |
 
 The "yes" entries for GCC, Clang and Emscripten were checked with GCC 13 (and
 MinGW's GCC 13), Clang 18 and Emscripten 6.0, in C and in C++, with raylib-cpp
 too. GCC 13 stops at C++26, as the table says it should. The MSVC column is
-CMake's own table.
+CMake's own table. For clang-cl, which CMake drives with MSVC-style flags,
+what changes is CMake itself: the column gives the CMake version that first
+asks it for each standard.
 
 tcc ("tcc", below) is a C compiler only, and has C99 and C11: C17, which is
 C11 with its defects fixed and nothing new, compiles as tcc's C11, and C23 stops
@@ -474,7 +526,8 @@ halves of that, and it is one line at the top of `main()`:
 ## The three targets
 
 **Linux and Windows** are the same command on each machine — and Linux can
-build the Windows one too, with `make win` ("Windows, from Linux", below).
+build the Windows one too, with `make win` or `make win-clang-cl` ("Windows,
+from Linux", below).
 
 ```bash
 make rel          # or: cmake --preset release && cmake --build --preset release
@@ -482,11 +535,11 @@ make rel          # or: cmake --preset release && cmake --build --preset release
 
 `build/release/` then holds the executable and its `resources/`: that folder is
 what you ship. A Windows release has no console window behind the game, and runs
-on a machine with nothing installed — the static C runtime with MSVC, and
-`-static` with MinGW, so there is no `libstdc++-6.dll` to forget. The copy of
-`resources/` is refreshed on every build but never pruned: if you renamed or
-deleted an asset since, `make clean` before `make rel`, or the old file ships
-too.
+on a machine with nothing installed — the static C runtime with MSVC and
+clang-cl, and `-static` with MinGW, so there is no `libstdc++-6.dll` to forget.
+The copy of `resources/` is refreshed on every build but never pruned: if you
+renamed or deleted an asset since, `make clean` before `make rel`, or the old
+file ships too.
 
 **The web** needs the [emsdk](https://emscripten.org/docs/getting_started/downloads.html)
 activated:
@@ -554,11 +607,81 @@ Worth knowing:
   built for MinGW-w64 (Fedora packages many, as `mingw64-...`), and the
   toolchain file looks for it in MinGW-w64's folder.
 
+#### With clang-cl
+
+```bash
+make win-clang-cl       # or: cmake --preset windows-clang-cl && cmake --build --preset windows-clang-cl
+make win-clang-cl-run   # play it here, under Wine
+```
+
+`build/windows-clang-cl/` then holds the game as clang-cl builds it on Windows.
+clang-cl is Clang with MSVC's command line: it compiles for Microsoft's own C
+runtime and C++ library, and lld-link, LLVM's counterpart of MSVC's linker,
+links what it writes. So the `.exe` is built the way MSVC builds one — the
+static C runtime, no console window, nothing to install — rather than the way
+MinGW does, with GCC's own C++ library: a library built with MSVC, which is
+how most Windows SDKs ship, links with it as it is, where MinGW needs one built
+for MinGW.
+
+What LLVM does not have is Microsoft's part: the C and C++ runtime, and the
+headers and libraries of Windows itself, the Windows SDK. xwin downloads those,
+from Microsoft, once — with LLVM itself from your distribution ("Setting up"):
+
+```bash
+cargo install --locked xwin
+xwin --accept-license splat --include-debug-libs --output ~/.xwin
+```
+
+`--accept-license` is you accepting Microsoft's license for those files, the
+one of Visual Studio's Build Tools: without it xwin shows you the link and
+asks. `--include-debug-libs` keeps the debug C runtime, which CMake's own test
+programs link even in a release build. It comes to about 800 MB. `~/.xwin` is
+where the build looks; anywhere else, say where with `XWIN_DIR=/that/folder`
+the first time you `make win-clang-cl`, and the build remembers it.
+
+How it works: the `windows-clang-cl` preset names its own toolchain file,
+`cmake/windows_clang_cl.cmake`. It finds clang-cl, on PATH or in Debian's and
+Ubuntu's `/usr/lib/llvm-*`, and takes the rest of LLVM from the same folder,
+so that the linker is as new as the compiler. It gives clang-cl and lld-link
+Microsoft's headers and libraries, from `~/.xwin`, and asks for x86-64 Windows
+whatever Linux it runs on. From there on CMake configures as it would for clang-cl on
+Windows — `WIN32` and `MSVC` are set — and the rest of `CMakeLists.txt` takes
+MSVC's paths, as it would there.
+
+Worth knowing, besides what is above about MinGW's build that holds for this
+one too — release only, Wine is not Windows, 64-bit:
+
+- **clang-cl's version.** Each Visual Studio's C++ library takes no clang-cl
+  older than the one that Visual Studio ships, and xwin downloads the newest,
+  which takes Clang 19 or newer. The build checks when it configures and says
+  so, rather than stopping later on the first standard header your C++
+  includes (`error STL1000: Unexpected compiler version`). With an older
+  clang-cl, install a newer one ("Setting up"), or have xwin fetch an older
+  library with `--crt-version`, in a fresh `~/.xwin`:
+
+  | `--crt-version` | from Visual Studio | takes |
+  |---|---|---|
+  | `14.44.17.14`, xwin's default today | 17.14 | Clang 19+ |
+  | `14.43.17.13` | 17.13 | Clang 18+ |
+  | `14.42.17.12` | 17.12 | Clang 17+ |
+  | `14.39.17.9` | 17.9 | Clang 16+ |
+
+- **On an ARM or RISC-V Linux** it works the same: clang-cl builds for x86-64
+  wherever it runs, and `~/.xwin` is nothing but files, which xwin can fetch
+  on any machine for you to copy over. `make win-clang-cl-run` needs an x86
+  emulator under Wine, as above.
+- **Libraries you add** that come prebuilt have to be built for MSVC, as `.lib`
+  files, which is how most Windows SDKs ship them. The toolchain file never
+  looks for them among Linux's.
+- **Size.** MinGW's `.exe` is the smaller one, as it leaves the C runtime in
+  the DLLs that come with Windows; clang-cl's carries Microsoft's inside, as
+  MSVC's does.
+
 ### How optimized is a release build?
 
 As far as a binary goes while it still runs on any machine of its kind:
 
-| | Linux, MinGW, macOS | MSVC | Web |
+| | Linux, MinGW, macOS | MSVC, clang-cl | Web |
 |---|---|---|---|
 | Optimization level | `-O3` | `/O2` | `-Oz`, for size |
 | Link-time optimization | yes, where the toolchain supports it | yes | yes, full LTO |
@@ -855,7 +978,7 @@ only things that are not negotiable:
 | raylib | backend, Wayland, disabled modules, raylib's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
-| run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve` and `win-run` out of the Makefile too. |
+| run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve`, `win-run` and `win-clang-cl-run` out of the Makefile too. |
 
 Some things look removable and are not:
 
@@ -882,8 +1005,9 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
 Change them there. `-Og` still debugs well and runs noticeably faster, `-O2`
 much faster again, at the price of variables the debugger reports as
-"optimized out". MSVC is left out of those lines because its Debug already has
-`/Od`, its `-O0`; tcc ignores the level, having nothing to turn off.
+"optimized out". MSVC and clang-cl are left out of those lines because their
+Debug already has `/Od`, their `-O0`; tcc ignores the level, having nothing to
+turn off.
 
 The release flags are CMake's own for the Release build type,
 `CMAKE_C_FLAGS_RELEASE` and `CMAKE_CXX_FLAGS_RELEASE` (`-O3 -DNDEBUG`, and
@@ -1029,17 +1153,18 @@ your code now.
 ```
 config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
-CMakePresets.json       the four builds: debug, release, web and windows
+CMakePresets.json       the five builds: debug, release, web and the two windows
 cmake/                  check_config.cmake; dev_compiler.cmake, compilers.cmake,
                         tcc.cmake (with tcc_fixup.c) and dev_linker.cmake, for
-                        the toolchain; and windows_cross.cmake, for the Windows
-                        build from Linux
+                        the toolchain; and windows_cross.cmake (MinGW-w64) and
+                        windows_clang_cl.cmake, for the Windows builds from
+                        Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
 include/                your headers
 resources/              your assets
 thirdparty/raylib/      raylib 6.2, plus the changes marked PATCHED
 thirdparty/raylib-cpp/  raylib-cpp's headers, there if you want them
-Makefile                the eight commands above
+Makefile                the ten commands above
 ```
 
 Adding a source file needs **no CMake edit**: `src/` is globbed recursively, and
@@ -1069,10 +1194,10 @@ at each step. The parts worth slowing down for:
 - **Generator expressions.** `$<CONFIG:Debug>` picks the MSVC runtime per
   configuration, `$<BOOL:...>` turns `ON`/`OFF` into the `1`/`0` your code
   sees, and `$<TARGET_FILE_DIR:...>` is where the executable ends up.
-- **Presets.** `CMakePresets.json` is the four builds; each gets its own
-  directory, so switching between them never rebuilds the others. The
-  `windows` one has a `condition` that hides it on Windows, where it has
-  nothing to do.
+- **Presets.** `CMakePresets.json` is the five builds; each gets its own
+  directory, so switching between them never rebuilds the others. The two
+  `windows` ones have a `condition` that hides them on Windows, where they
+  have nothing to do.
 - **Teaching CMake a compiler.** `cmake/tcc.cmake` is what CMake has to be told
   about a compiler it barely knows: how to ask it for header dependencies,
   which flag selects each C standard and which C features it has, and the
@@ -1082,7 +1207,10 @@ at each step. The parts worth slowing down for:
 - **Toolchain files.** The web and windows presets each name one: a file CMake
   reads before `project()`, which says what system the build is for and which
   compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is
-  short enough to read in a minute.
+  short enough to read in a minute, and `cmake/windows_clang_cl.cmake` shows
+  what it takes when the compiler does not bring the target system's own
+  headers and libraries, as MinGW-w64 does: where they are, and that the
+  compiler is new enough for them.
 
 ## What this is not
 

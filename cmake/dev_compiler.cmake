@@ -19,28 +19,32 @@ if(PRODUCTION_BUILD OR CMAKE_TOOLCHAIN_FILE)
   return()
 endif()
 
-# mingw and msvc only exist on Windows. A Linux box with the MinGW cross
-# compiler installed would otherwise find it and quietly start producing .exe
-# files in the debug build; `make win` is the way to those. Before project()
-# these variables describe the machine you are on, not the target. MSYS and
-# CYGWIN as well as WIN32, because in MSYS2's own shell CMake sets MSYS and not
-# WIN32 — in the very shell that ships the compiler.
+# mingw, msvc and clang-cl only build Windows programs. A Linux box with the
+# MinGW cross compiler installed would otherwise find it and quietly start
+# producing .exe files in the debug build; `make win` and `make win-clang-cl`
+# are the way to those. Before project() these variables describe the machine
+# you are on, not the target. MSYS and CYGWIN as well as WIN32, because in
+# MSYS2's own shell CMake sets MSYS and not WIN32 — in the very shell that ships
+# the compiler.
 foreach(_setting IN ITEMS DEV_C_COMPILER DEV_CPP_COMPILER)
-  if(${_setting} MATCHES "^(mingw|msvc)$" AND NOT (WIN32 OR MSYS OR CYGWIN))
+  if(${_setting} MATCHES "^(mingw|msvc|clang-cl)$" AND NOT (WIN32 OR MSYS OR CYGWIN))
     message(FATAL_ERROR
       "${_setting} ${${_setting}} only makes sense on Windows. Here, use clang, "
-      "gcc or default — and `make win` for a Windows build.")
+      "gcc or default — and `make win` or `make win-clang-cl` for a Windows build.")
   endif()
 endforeach()
 
 # MSVC's objects link with MSVC's only, and the other way round: its C runtime
-# and its C++ ABI are its own.
-if((DEV_C_COMPILER STREQUAL "msvc" OR DEV_CPP_COMPILER STREQUAL "msvc")
-    AND NOT (DEV_C_COMPILER STREQUAL "msvc" AND DEV_CPP_COMPILER STREQUAL "msvc"))
-  message(FATAL_ERROR
-    "msvc goes with msvc only: set both DEV_C_COMPILER and DEV_CPP_COMPILER to "
-    "msvc, or neither.")
-endif()
+# and its C++ ABI are its own. clang-cl builds for those very ones, but CMake
+# will not have it and MSVC in one build, so each goes with itself only.
+foreach(_choice IN ITEMS msvc clang-cl)
+  if((DEV_C_COMPILER STREQUAL _choice OR DEV_CPP_COMPILER STREQUAL _choice)
+      AND NOT (DEV_C_COMPILER STREQUAL _choice AND DEV_CPP_COMPILER STREQUAL _choice))
+    message(FATAL_ERROR
+      "${_choice} goes with ${_choice} only: set both DEV_C_COMPILER and "
+      "DEV_CPP_COMPILER to ${_choice}, or neither.")
+  endif()
+endforeach()
 
 # tcc writes the object files of the system it runs on, and only Linux's are
 # ones the rest of the toolchain can link: on Windows and macOS it writes ELF
@@ -58,11 +62,21 @@ set(_dev_C_clang clang)
 set(_dev_C_gcc gcc)
 set(_dev_C_mingw x86_64-w64-mingw32-gcc gcc)
 set(_dev_C_msvc cl)
+set(_dev_C_clang-cl clang-cl)
 set(_dev_C_tcc tcc)
 set(_dev_CXX_clang clang++)
 set(_dev_CXX_gcc g++)
 set(_dev_CXX_mingw x86_64-w64-mingw32-g++ g++)
 set(_dev_CXX_msvc cl)
+set(_dev_CXX_clang-cl clang-cl)
+
+# Visual Studio's own clang-cl ("C++ Clang Compiler for Windows") sits next to
+# MSVC, where its command prompts do not necessarily put it on PATH: there,
+# after PATH, from VCINSTALLDIR, which those prompts set.
+if(DEFINED ENV{VCINSTALLDIR})
+  file(TO_CMAKE_PATH "$ENV{VCINSTALLDIR}" _vc)
+  set(_dev_paths_clang-cl "${_vc}/Tools/Llvm/x64/bin")
+endif()
 
 foreach(_lang IN ITEMS C CXX)
   if(_lang STREQUAL "C")
@@ -82,7 +96,7 @@ foreach(_lang IN ITEMS C CXX)
     continue()
   endif()
 
-  find_program(_dev_${_lang} NAMES ${_dev_${_lang}_${_choice}} NO_CACHE)
+  find_program(_dev_${_lang} NAMES ${_dev_${_lang}_${_choice}} PATHS ${_dev_paths_${_choice}} NO_CACHE)
   if(NOT _dev_${_lang})
     list(JOIN _dev_${_lang}_${_choice} " or " _names)
     message(FATAL_ERROR

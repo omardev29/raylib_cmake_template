@@ -8,6 +8,9 @@
 #   make win      compile the Windows build you ship, on Linux, into
 #                 build/windows/ (needs MinGW-w64)
 #   make win-run  play that Windows build here, under Wine
+#   make win-clang-cl      the same Windows build with clang-cl, into
+#                          build/windows-clang-cl/ (needs LLVM and xwin)
+#   make win-clang-cl-run  play that one under Wine
 #   make clean    delete every build
 #
 # Every recipe is plain CMake underneath, so this file doubles as a cheat
@@ -48,6 +51,12 @@ win: build/windows/build.ninja
 win-run: build/windows/build.ninja
 	"cmake" --build --preset windows --target run
 
+win-clang-cl: build/windows-clang-cl/build.ninja
+	"cmake" --build --preset windows-clang-cl
+
+win-clang-cl-run: build/windows-clang-cl/build.ninja
+	"cmake" --build --preset windows-clang-cl --target run
+
 clean:
 	"cmake" -E rm -rf build
 
@@ -68,4 +77,7 @@ build/web/build.ninja: CMakePresets.json
 build/windows/build.ninja: CMakePresets.json
 	"cmake" --preset windows
 
-.PHONY: dev run rel web serve win win-run clean
+build/windows-clang-cl/build.ninja: CMakePresets.json
+	"cmake" --preset windows-clang-cl
+
+.PHONY: dev run rel web serve win win-run win-clang-cl win-clang-cl-run clean

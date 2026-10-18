@@ -11,8 +11,8 @@
 # Included right after project(), so a mismatch stops the configure before
 # anything is built with the wrong compiler.
 
-# The name the build gives a compiler. MinGW is GCC for Windows, and
-# Emscripten, Clang for the web.
+# The name the build gives a compiler. MinGW is GCC for Windows, Emscripten
+# Clang for the web, and clang-cl Clang with MSVC's command line.
 function(compiler_name lang out)
   set(id "${CMAKE_${lang}_COMPILER_ID}")
   if(EMSCRIPTEN)
@@ -25,6 +25,8 @@ function(compiler_name lang out)
     set(name "TCC")
   elseif(id STREQUAL "AppleClang")
     set(name "APPLE CLANG")
+  elseif(id STREQUAL "Clang" AND CMAKE_${lang}_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(name "CLANG-CL")
   else()
     string(TOUPPER "${id}" name) # CLANG, MSVC
   endif()

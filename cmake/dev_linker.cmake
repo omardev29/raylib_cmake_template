@@ -6,8 +6,10 @@
 if(PRODUCTION_BUILD OR CMAKE_TOOLCHAIN_FILE OR DEV_LINKER STREQUAL "default")
   return() # same rules as DEV_C_COMPILER and DEV_CPP_COMPILER
 endif()
+# MSVC and clang-cl: CMake runs the linker itself, the one it found next to the
+# compiler — link.exe for MSVC, lld-link, LLVM's own, for clang-cl.
 if(MSVC)
-  message(STATUS "DEV_LINKER: MSVC always links with its own link.exe")
+  message(STATUS "DEV_LINKER: ${CMAKE_LINKER}, as MSVC and clang-cl always pick their own")
   return()
 endif()
 
