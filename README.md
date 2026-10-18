@@ -350,6 +350,26 @@ linkers of Windows and macOS do not read; and on 64-bit ARM, miniaudio, which
 raylib's audio is built on, uses NEON intrinsics, which tcc does not have.
 "Setting up" has the package for each distribution.
 
+**Which tcc.** Any you can install today: there is no version to check for.
+tcc's last release is 0.9.27, from 2017, and its development has gone on since
+in its repository as 0.9.28rc, which has never been released. What
+distributions package are snapshots of that work, and the build covers what
+each kind gets wrong:
+
+| | 0.9.27 | 0.9.28rc |
+|---|---|---|
+| Who ships it | Debian and Ubuntu: a 2020 snapshot, despite the number | Arch and Alpine: recent snapshots. Built from source, it is the repository as it is that day |
+| glibc's `<regex.h>`, which GLFW includes | too much for its parser; the build defines `__STDC_NO_VLA__`, and glibc leaves out the part it chokes on | fine |
+| `__builtin_clz()`, which raylib calls | missing from its `libtcc1.a`; the build adds one | there |
+| unwind tables | none | wrong for any linker but tcc's own; the build turns them off, and takes them out of `libtcc1.a` |
+| its tables of addresses, `.data.ro` | — | right with GNU ld only, which links the game |
+| debug information | stabs | stabs; its DWARF is wrong once linked |
+
+`tcc -v` tells them apart, but the 2017 release says 0.9.27 too, and that one
+is too old. It does not build on a current glibc, and built anyway, without its
+bounds checker, its games run but their debug information comes out broken:
+gdb crashes reading it.
+
 What is different from a GCC or Clang build:
 
 - **The debugger sees little of tcc's code.** tcc's debug information is line
@@ -382,9 +402,8 @@ which flag selects each C standard. It links tcc's runtime library,
 `libtcc1.a`, which tcc adds when it links and GCC and Clang have never heard
 of: functions tcc's code calls for what GCC does inline, such as reading a
 `va_arg`. The game links a copy, in `build/tcc/`, with the unwind tables taken
-out. And it covers two gaps of tcc 0.9.27, the one Debian and Ubuntu ship: it
-cannot parse glibc's `<regex.h>`, which GLFW includes, and its `libtcc1.a` has
-no `__builtin_clz()`, which raylib calls, so the copy gets one.
+out, and `__builtin_clz()` added where it is missing. And it covers the rest of
+the table above.
 
 ## Resources
 
