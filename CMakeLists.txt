@@ -45,10 +45,11 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 # build/compile_commands.json, which editors read to understand your code.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ccache, if you have it.
+# ccache, if you have it: for C, behind tcc's own launcher (cmake/tcc.cmake),
+# which corrects what tcc wrote once ccache has handed it over.
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
-  set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+  set(CMAKE_C_COMPILER_LAUNCHER ${TCC_LAUNCHER} "${CCACHE_PROGRAM}")
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 

@@ -26,12 +26,12 @@ else()
   set(_dev_linkers ${DEV_LINKER})
 endif()
 
-# Code compiled by tcc links right with GNU ld only. mold and lld keep tcc's
-# line numbers for the debugger but drop their text (.stabstr), and newer tcc
-# marks its tables of addresses read-only where it means "read-only once
-# relocated", as GNU ld takes it: mold then writes text relocations into the
-# game, and lld refuses to link it at all. GNU ld is the slower of them, by a
-# fraction of a second on a link this size.
+# Code compiled by tcc links right with GNU ld only. mold and lld keep the line
+# numbers of 0.9.27's stabs for the debugger but drop their text (.stabstr),
+# and newer tcc marks its tables of addresses read-only where it means
+# "read-only once relocated", as GNU ld takes it: mold then writes text
+# relocations into the game, and lld refuses to link it at all. GNU ld is the
+# slower of them, by a fraction of a second on a link this size.
 if(CMAKE_C_COMPILER_ID STREQUAL "TinyCC")
   if(NOT DEV_LINKER STREQUAL "auto")
     message(WARNING "DEV_LINKER ${DEV_LINKER} does not link tcc's code right "

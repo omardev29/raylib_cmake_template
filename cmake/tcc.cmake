@@ -15,7 +15,10 @@ endif()
 
 # x86-64 only. On 64-bit ARM, miniaudio, which raylib's audio is built on,
 # reaches for NEON intrinsics as soon as it sees the processor, and tcc has
-# none: the build would stop on <arm_neon.h>, deep inside raudio.c.
+# none: the build would stop on <arm_neon.h>, deep inside raudio.c. On RISC-V
+# it builds, and runs, but tcc's calls do not yet follow the platform's rules:
+# some arguments arrive wrong, in raylib's own code too, with no error to say
+# so (README.md, "tcc").
 if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
   message(FATAL_ERROR
     "tcc builds this project on x86-64 Linux only, and this is "
@@ -63,22 +66,27 @@ set(CMAKE_C_COMPILE_FEATURES ${CMAKE_C90_COMPILE_FEATURES} ${CMAKE_C99_COMPILE_F
 # code that looks at it changes, and in this build that is regex.h alone.
 add_compile_definitions("$<$<COMPILE_LANGUAGE:C>:__STDC_NO_VLA__=1>")
 
-# Unwind tables: the .eh_frame section, which C++ exceptions and debuggers
-# read to walk back up the stack. tcc 0.9.28 writes them right for its own
-# linker only: in any other, each entry claims to start where its file's first
-# function does. GNU ld refuses them ("overlapping FDEs"), and mold, lld and
-# gold link them, wrong. tcc 0.9.27 writes none, and this flag, which 0.9.27
-# ignores, makes a newer tcc write none either.
-add_compile_options("$<$<COMPILE_LANGUAGE:C>:-fno-asynchronous-unwind-tables>")
-
-# Debug information: stabs. Newer tcc writes DWARF too, and can be built to
-# write it for a plain -g, but its DWARF has the fault its unwind tables have:
-# linked by another linker, every function of a file sits where the file's
-# first one does, and a breakpoint on a function stops in some other one. Its
-# stabs come out right, though gdb 18 no longer reads them, and goes by the
-# function names alone. 0.9.27 has stabs only, and takes -gstabs as -g; like
-# -g, it turns the debug information on.
-add_compile_options("$<$<COMPILE_LANGUAGE:C>:-gstabs>")
+# Debug information and unwind tables: DWARF, which gdb reads to show variables
+# and step from line to line, and .eh_frame, which a C++ exception reads to
+# unwind through tcc's code to its catch. Newer tcc writes both, but leaves
+# part of each address where only its own linker looks: linked by any other,
+# every function of a file sits where the file's first one does, gdb stops in
+# the wrong function, and GNU ld refuses the unwind tables ("overlapping
+# FDEs"). So every object tcc writes goes through tcc_fixup.c, next to this
+# file, which moves those bytes to where every linker looks. CMake runs it as
+# the C compiler's launcher, ahead of ccache (CMakeLists.txt), and tcc builds
+# it here, in a fraction of a second. 0.9.27 writes no unwind tables, and no
+# DWARF: it takes -gdwarf as -g, for stabs, which gdb 18 and later do not read.
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tcc")
+set(TCC_LAUNCHER "${CMAKE_BINARY_DIR}/tcc/tcc_fixup")
+execute_process(COMMAND "${CMAKE_C_COMPILER}" -o "${TCC_LAUNCHER}" "${CMAKE_CURRENT_LIST_DIR}/tcc_fixup.c"
+  RESULT_VARIABLE _rc ERROR_VARIABLE _err)
+if(NOT _rc EQUAL 0)
+  message(FATAL_ERROR "tcc could not build cmake/tcc_fixup.c: ${_rc} ${_err}")
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/tcc_fixup.c")
+list(PREPEND CMAKE_C_COMPILER_LAUNCHER "${TCC_LAUNCHER}")
+add_compile_options("$<$<COMPILE_LANGUAGE:C>:-gdwarf>")
 
 # tcc's runtime library, libtcc1.a: functions tcc's code calls for what GCC
 # does inline — reading a va_arg on x86-64, turning a double into an unsigned
@@ -98,9 +106,10 @@ endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${TCC_LIBTCC1}")
 
 # The game links a copy, with the unwind tables taken out: tcc compiled
-# libtcc1.a too, wrong tables and all. objcopy comes with the linker.
+# libtcc1.a too, wrong tables and all, and no tcc_fixup ever saw it. None of
+# its functions calls back into code that could throw. objcopy comes with the
+# linker.
 set(TCC_RUNTIME "${CMAKE_BINARY_DIR}/tcc/libtcc1.a")
-file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tcc")
 execute_process(
   COMMAND "${CMAKE_OBJCOPY}" --remove-section=.eh_frame --remove-section=.rela.eh_frame
           "${TCC_LIBTCC1}" "${TCC_RUNTIME}"

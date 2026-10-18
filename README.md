@@ -347,7 +347,10 @@ use it, whatever `config.cmake` says, and a release build that finds tcc
 anyway, through `CC=tcc` in your environment, stops and says so. And it is for
 x86-64 Linux only. tcc writes ELF object files wherever it runs, which the
 linkers of Windows and macOS do not read; and on 64-bit ARM, miniaudio, which
-raylib's audio is built on, uses NEON intrinsics, which tcc does not have.
+raylib's audio is built on, uses NEON intrinsics, which tcc does not have. On
+RISC-V, it builds and the game runs, but tcc does not yet pass every argument
+where that platform's rules put it: some arrive wrong, with no error to say
+so, in raylib's own code too — its audio filters, for one.
 "Setting up" has the package for each distribution.
 
 **Which tcc.** Any you can install today: there is no version to check for.
@@ -361,9 +364,9 @@ each kind gets wrong:
 | Who ships it | Debian and Ubuntu: a 2020 snapshot, despite the number | Arch and Alpine: recent snapshots. Built from source, it is the repository as it is that day |
 | glibc's `<regex.h>`, which GLFW includes | too much for its parser; the build defines `__STDC_NO_VLA__`, and glibc leaves out the part it chokes on | fine |
 | `__builtin_clz()`, which raylib calls | missing from its `libtcc1.a`; the build adds one | there |
-| unwind tables | none | wrong for any linker but tcc's own; the build turns them off, and takes them out of `libtcc1.a` |
+| unwind tables | none | wrong for any linker but tcc's own, until the build corrects them (below); taken out of `libtcc1.a` |
 | its tables of addresses, `.data.ro` | — | right with GNU ld only, which links the game |
-| debug information | stabs | stabs, unless built to write DWARF, which is wrong once linked; the build asks for stabs |
+| debug information | stabs, which gdb 18 and later no longer read | DWARF, wrong for any linker but tcc's own too, until the build corrects it |
 
 `tcc -v` tells them apart, but the 2017 release says 0.9.27 too, and that one
 is too old. It does not build on a current glibc, and built anyway, without its
@@ -382,28 +385,36 @@ build setting can change that:
 
 What is different from a GCC or Clang build:
 
-- **The debugger sees little of tcc's code.** tcc's debug information is line
-  numbers only, in the old stabs format. Up to gdb 17, a breakpoint on a line
-  of raylib or of your C code stops there. gdb 18 and later read no stabs
-  ("stabs debug information is not supported"), and only a breakpoint on a
-  function stops in tcc's code. Backtraces go through it with either, by
-  function name, but there are no variables to look at and no stepping from
-  line to line. Your `.cpp` code debugs as usual; to debug C code, switch
-  `DEV_C_COMPILER` back for a while.
-  Newer tcc can write DWARF too, and can be built to write it for a plain
-  `-g`, but linked by anything but tcc itself, its DWARF credits every
-  function of a file to that file's first one: a breakpoint on a function
-  stops in some other one. So the build asks for stabs, with `-gstabs`.
-- **A C++ exception cannot cross tcc's code.** One thrown in a callback that
-  raylib calls, such as a `SetTraceLogCallback()` or `SetLoadFileDataCallback()`
-  one, ends the game with `std::terminate` instead of reaching a `catch` around
-  the raylib call: tcc's code has no unwind tables. Newer tcc writes them, but
-  wrong, and GNU ld refuses them, so the build turns them off.
+- **With 0.9.27, the debugger sees little of tcc's code.** Its debug
+  information is line numbers only, in the old stabs format. Up to gdb 17, a
+  breakpoint on a line of raylib or of your C code stops there. gdb 18 and
+  later read no stabs ("stabs debug information is not supported"), and only a
+  breakpoint on a function stops in tcc's code. Backtraces go through it with
+  either, by function name, but there are no variables to look at and no
+  stepping from line to line. Your `.cpp` code debugs as usual; to debug C
+  code, switch `DEV_C_COMPILER` back for a while, or use 0.9.28rc: its DWARF,
+  once the build has corrected it, debugs like GCC's, with any gdb, 18
+  included. Only, gdb lists a function's arguments last to first.
+- **With 0.9.27, a C++ exception cannot cross tcc's code.** One thrown in a
+  callback that raylib calls, such as a `SetTraceLogCallback()` or
+  `SetLoadFileDataCallback()` one, ends the game with `std::terminate` instead
+  of reaching a `catch` around the raylib call: 0.9.27 writes no unwind tables.
+  0.9.28rc writes them, and once the build has corrected them, the exception
+  reaches the `catch`.
+- **A structure of 9 to 16 bytes that mixes floating-point and integer
+  fields, passed by value between your C++ and tcc's C, arrives wrong:**
+  `struct { double time; long id; }`, `struct { float x, y; int w, h; }`. tcc
+  does not put it where GCC and Clang look for it, and nothing says so.
+  raylib's own types are not like that — `Vector2`, `Rectangle`, `Color`,
+  `Shader` and all the others cross as they should — so it is only your own
+  structures to watch: pass a pointer to one, or keep both ends in C or both
+  in C++. The same goes for a structure passed through the `...` of a
+  variadic function.
 - **C99 and C11 only** ("C and C++ standards", above). C17 compiles as C11, and
   `__STDC_VERSION__` says `201112L`.
 - **GNU ld links the game**, never the mold or lld that `DEV_LINKER` would pick.
-  mold and lld drop tcc's line numbers, and newer tcc marks some of its data in
-  a way only GNU ld takes as meant: mold then has the game patch its own
+  mold and lld drop 0.9.27's line numbers, and newer tcc marks some of its data
+  in a way only GNU ld takes as meant: mold then has the game patch its own
   read-only memory at every start, and lld refuses to link it. GNU ld takes a
   fraction of a second longer.
 - **The C++ compiler links it,** even when `src/` has no `.cpp` at all.
@@ -423,6 +434,14 @@ of: functions tcc's code calls for what GCC does inline, such as reading a
 `va_arg`. The game links a copy, in `build/tcc/`, with the unwind tables taken
 out, and `__builtin_clz()` added where it is missing. And it covers the rest of
 the table above.
+
+What corrects 0.9.28rc's debug information and unwind tables is
+`cmake/tcc_fixup.c`, a short C program that the build compiles with tcc, into
+`build/tcc/`, and that CMake runs in front of tcc, as ccache runs in front of a
+compiler. Once tcc has written an object, it moves the part of each address
+that tcc left where only tcc's own linker looks into the relocation, where
+every linker looks; uncorrected, every function of a file sits where the file's
+first one does. 0.9.27's objects come out as they went in.
 
 ## Resources
 
@@ -1012,8 +1031,9 @@ config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
 CMakePresets.json       the four builds: debug, release, web and windows
 cmake/                  check_config.cmake; dev_compiler.cmake, compilers.cmake,
-                        tcc.cmake and dev_linker.cmake, for the toolchain; and
-                        windows_cross.cmake, for the Windows build from Linux
+                        tcc.cmake (with tcc_fixup.c) and dev_linker.cmake, for
+                        the toolchain; and windows_cross.cmake, for the Windows
+                        build from Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
 include/                your headers
 resources/              your assets
@@ -1056,7 +1076,9 @@ at each step. The parts worth slowing down for:
 - **Teaching CMake a compiler.** `cmake/tcc.cmake` is what CMake has to be told
   about a compiler it barely knows: how to ask it for header dependencies,
   which flag selects each C standard and which C features it has, and the
-  runtime library that only the compiler itself used to add to a link.
+  runtime library that only the compiler itself used to add to a link. It also
+  shows a compiler launcher, `CMAKE_C_COMPILER_LAUNCHER`, the way ccache gets
+  in front of a compiler, put to another use: correcting what tcc writes.
 - **Toolchain files.** The web and windows presets each name one: a file CMake
   reads before `project()`, which says what system the build is for and which
   compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is
