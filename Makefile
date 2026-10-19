@@ -10,10 +10,11 @@
 #   make serve    play the web build: emrun serves it and opens your browser
 #   make win      compile the Windows build you ship, on Linux, into
 #                 build/windows/ (needs MinGW-w64)
-#   make win-run  play that Windows build here, under Wine
+#   make win-run  play that Windows build here: under Wine, or in WSL on
+#                 Windows itself
 #   make win-clang-cl      the same Windows build with clang-cl, into
 #                          build/windows-clang-cl/ (needs LLVM and xwin)
-#   make win-clang-cl-run  play that one under Wine
+#   make win-clang-cl-run  play that one the same way
 #   make clean    delete every build
 #
 # Every recipe is plain CMake underneath, so this file doubles as a cheat

@@ -109,6 +109,11 @@ if(PRODUCTION_BUILD)
           break()
         endif()
       endforeach()
+      # The usual one with Clang, which needs llvm-ar for it: Ubuntu's and
+      # Alpine's ship that with LLVM's own package, not with Clang's.
+      if(_lto_why MATCHES "COMPILER_AR-NOTFOUND")
+        set(_lto_why "llvm-ar is not installed; it comes with LLVM's own package")
+      endif()
       message(STATUS "No link-time optimization here: ${_lto_why}")
     endif()
 
@@ -348,20 +353,22 @@ endif()
 # cmake --build --preset debug --target run
 # builds whatever changed, then starts the game. On the web it serves the page
 # with emrun, which comes with the emsdk, and opens your browser. A Windows
-# build made on Linux starts under Wine, when there is one.
+# build made on Linux starts under Wine, or in WSL on Windows itself.
 if(EMSCRIPTEN)
   add_custom_target(run COMMAND emrun "$<TARGET_FILE:${GAME_NAME}>"
     USES_TERMINAL VERBATIM)
   add_dependencies(run ${GAME_NAME})
 elseif(WIN32 AND NOT CMAKE_HOST_WIN32)
-  # Wine is looked for when the game starts, not when CMake configures, so
-  # installing it later is all it takes. WINEDEBUG keeps Wine's own chatter down
-  # to its errors. WINEDLLOVERRIDES skips the offer Wine makes the first time,
-  # to install .NET and a web engine: a raylib game needs neither.
+  # In WSL, Windows itself runs the game: WSL hands an .exe started from Linux
+  # over to Windows, when its interop is on, as it is unless turned off in
+  # /etc/wsl.conf. Anywhere else, Wine. Each is looked for when the game
+  # starts, not when CMake configures, so installing Wine later is all it
+  # takes. WINEDEBUG keeps Wine's own chatter down to its errors.
+  # WINEDLLOVERRIDES skips the offer Wine makes the first time, to install
+  # .NET and a web engine: a raylib game needs neither.
   add_custom_target(run
-    COMMAND sh -c "command -v wine > /dev/null || { echo 'Playing the Windows build here needs Wine: README.md, Setting up.'; exit 1; }"
-    COMMAND "${CMAKE_COMMAND}" -E env WINEDEBUG=fixme-all "WINEDLLOVERRIDES=mscoree,mshtml="
-            wine "$<TARGET_FILE:${GAME_NAME}>"
+    COMMAND sh -c [[for f in /proc/sys/fs/binfmt_misc/WSLInterop /proc/sys/fs/binfmt_misc/WSLInterop-late; do grep -qs '^enabled' "$f" && exec "$0"; done; command -v wine > /dev/null || { echo 'Playing the Windows build here needs Wine: README.md, Setting up.'; exit 1; }; WINEDEBUG=fixme-all WINEDLLOVERRIDES=mscoree,mshtml= exec wine "$0"]]
+            "$<TARGET_FILE:${GAME_NAME}>"
     WORKING_DIRECTORY "$<TARGET_FILE_DIR:${GAME_NAME}>" USES_TERMINAL VERBATIM)
   add_dependencies(run ${GAME_NAME})
 else()

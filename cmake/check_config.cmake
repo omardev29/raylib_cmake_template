@@ -12,6 +12,17 @@ if(CMAKE_SOURCE_DIR MATCHES "[#;]" OR CMAKE_BINARY_DIR MATCHES "[#;]")
     "project to another one.")
 endif()
 
+# And the one shell on Windows that cannot build it: MSYS2's own, MSYS (and
+# Cygwin's). Their CMake and GCC make programs for that POSIX layer rather
+# than for Windows, and the configure would stop deep in GLFW, asking for
+# X11. The windows preset, a cross build, is the exception.
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "^(MSYS|CYGWIN)" AND NOT CMAKE_TOOLCHAIN_FILE)
+  message(FATAL_ERROR
+    "This is ${CMAKE_HOST_SYSTEM_NAME}'s own CMake, which builds for its POSIX "
+    "layer, not for Windows. Open MSYS2's UCRT64 shell instead, and install "
+    "the packages that README.md, \"Setting up\", lists for it.")
+endif()
+
 function(expect_one_of setting)
   if(NOT "${${setting}}" IN_LIST ARGN)
     list(JOIN ARGN " | " choices)

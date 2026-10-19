@@ -23,12 +23,11 @@ endif()
 # mingw, msvc and clang-cl only build Windows programs. A Linux box with the
 # MinGW cross compiler installed would otherwise find it and quietly start
 # producing .exe files in the debug build; `make win` and `make win-clang-cl`
-# are the way to those. Before project() these variables describe the machine
-# you are on, not the target. MSYS and CYGWIN as well as WIN32, because in
-# MSYS2's own shell CMake sets MSYS and not WIN32 — in the very shell that ships
-# the compiler.
+# are the way to those. Before project(), WIN32 describes the machine you are
+# on, not the target. (MSYS2's own shell, which is not Windows to CMake, has
+# already stopped in cmake/check_config.cmake.)
 foreach(_setting IN ITEMS DEV_C_COMPILER DEV_CPP_COMPILER)
-  if(${_setting} MATCHES "^(mingw|msvc|clang-cl)$" AND NOT (WIN32 OR MSYS OR CYGWIN))
+  if(${_setting} MATCHES "^(mingw|msvc|clang-cl)$" AND NOT WIN32)
     message(FATAL_ERROR
       "${_setting} ${${_setting}} only makes sense on Windows. Here, use clang, "
       "gcc or default — and `make win` or `make win-clang-cl` for a Windows build.")

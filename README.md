@@ -48,9 +48,9 @@ cmake --build --preset debug --target run
 | `make web` | compile for the browser, into `build/web/` |
 | `make serve` | play the web build: emrun serves it and opens your browser |
 | `make win` | on Linux, compile the Windows build you ship, into `build/windows/` |
-| `make win-run` | play that Windows build here, under Wine |
+| `make win-run` | play that Windows build here, under Wine (in WSL, on Windows itself) |
 | `make win-clang-cl` | the same with clang-cl instead of MinGW, into `build/windows-clang-cl/` |
-| `make win-clang-cl-run` | play that one under Wine |
+| `make win-clang-cl-run` | play that one the same way |
 | `make clean` | delete every build |
 
 Every recipe is a single CMake command, so the `Makefile` doubles as a cheat
@@ -203,7 +203,9 @@ there, use rustup — `sudo apt install rustup && rustup default stable` on
 Debian 13 and Ubuntu 24.04, [rustup.rs](https://rustup.rs) on Debian 12.
 
 Every current release of these ships CMake 3.25 or newer, except Ubuntu 22.04
-(3.22), where `pip install cmake` gets a current one.
+(3.22), where pip gets a current one: `sudo apt install python3-pip`, then
+`pip install cmake`, which puts it in `~/.local/bin` — on PATH, ahead of the
+old one, from the next terminal you open.
 
 ### macOS
 
@@ -294,7 +296,9 @@ window needs a display server, and current WSL comes with one: WSLg, on Windows
 speaks both X11 and Wayland, so there is nothing else to install. An older WSL
 needs an X server such as VcXsrv, with `DISPLAY` pointing at it. Keep the
 project in WSL's own file system (under `~`), not under `/mnt/c`, where builds
-are several times slower. For the `.exe`, use one of the ways above.
+are several times slower. For the `.exe`, either use one of the ways above, or
+stay in WSL: `make win` builds it there as on any Linux ("Windows, from
+Linux"), and `make win-run` starts it on Windows itself, with no Wine.
 
 ## The config
 
@@ -593,7 +597,7 @@ On Linux, with MinGW-w64 installed ("Setting up"):
 
 ```bash
 make win          # or: cmake --preset windows && cmake --build --preset windows
-make win-run      # play it here, under Wine
+make win-run      # play it here: under Wine, or in WSL on Windows itself
 ```
 
 `build/windows/` then holds `game.exe` and its `resources/`: the same folder
@@ -610,7 +614,8 @@ as it would on Windows with MinGW — `WIN32` and `MINGW` are set — so the res
 of `CMakeLists.txt` needs nothing of its own: raylib builds its Windows backend
 (`WINDOWS_BACKEND`), and the release is `-static`, has no console window and
 gets `resources/` copied next to it. What comes out is a native Windows
-program; Wine only comes in for `make win-run`.
+program; Wine only comes in for `make win-run`, and not even then in WSL,
+where Windows runs the `.exe` itself.
 
 Worth knowing:
 
@@ -618,7 +623,10 @@ Worth knowing:
   where the game is the same code, or on Windows.
 - **Wine is not Windows.** `make win-run` is a quick look that the `.exe` starts
   and finds its assets. Try it on a real Windows machine before you ship it.
-  The first run sets Wine up in `~/.wine`, which takes a moment.
+  The first run sets Wine up in `~/.wine`, which takes a moment. In WSL there
+  is no Wine to install: WSL hands an `.exe` started from Linux over to
+  Windows, so `make win-run` starts the game on the Windows it runs on, as
+  long as WSL's interop is on (it is unless turned off in `/etc/wsl.conf`).
 - **64-bit x86 only**, which is what every Windows PC of the last decade runs;
   Windows 11 on ARM runs it too, through its x86-64 emulation.
 - **On an ARM or RISC-V Linux**, `make win` works just the same where the
@@ -1200,7 +1208,7 @@ only things that are not negotiable:
 | raylib | backend, Wayland, disabled modules, raylib's and GLFW's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, the Windows manifest, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
-| run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve`, `win-run` and `win-clang-cl-run` out of the Makefile too. |
+| run | the `run` target; for the Windows build from Linux, Wine, or in WSL Windows itself | Can go; then take `run`, `serve`, `win-run` and `win-clang-cl-run` out of the Makefile too. |
 
 Some things look removable and are not:
 
@@ -1279,6 +1287,7 @@ grep -rn PATCHED thirdparty
 | `src/platforms/rcore_drm.c` | the console guard, and no flow control ("A text console (DRM)") | restores the console after a crash too, and turns flow control off |
 | `src/external/tinyobj_loader_c.h` | the face code of raylib's `430439e6`, from after 6.2: an OBJ n-gon of up to 23 vertices loads, triangulated, where 6.2 overflowed the stack on a face of more than 16 and left one of more than 5 half-built, which could crash the loader; and a line of more than 4095 bytes, which 6.2 left half-built too, is dropped cleanly | has `430439e6`, and sets the command empty before its first `return 0` |
 | `src/rcore.c` | drops a replayed automation event whose values are out of range | checks them in `PlayAutomationEvent()` |
+| `src/external/RGFW/deps/minigamepad.h` | defines `ABS_PROFILE` where the kernel headers do not, as Ubuntu 22.04's do not: RGFW did not build there | defines it itself, or guards its use |
 | `src/rtextures.c` | raylib's `b9758a64` and `226b281e`, from after 6.2: a QOI file of less than 13 bytes is no longer read past its end, and a PEP image no longer comes back already freed (PEP is off unless you turn it on) | has both |
 | `src/platforms/rcore_web.c` | `OpenURL()` on the web refuses quotes and anything but `http(s)://`, as it does on the desktop | does the same in this backend |
 | raylib-cpp's `Functions.hpp` | `raylib::ChangeDirectory()` returns true on success again | raylib-cpp follows raylib 6.2 |
@@ -1348,6 +1357,9 @@ How to tell whether the new raylib still needs each patch:
     `if (p_len > 4095) return 0;` comes before `command->type = COMMAND_EMPTY;`.
 - **Automation events** (`src/rcore.c`): still needed if `PlayAutomationEvent()`
   uses `event.params[0]` as an index without checking it first.
+- **`ABS_PROFILE`** (`src/external/RGFW/deps/minigamepad.h`): still needed if
+  `mg_get_gamepad_axis_platform()` has `case ABS_PROFILE:` with no `#ifdef` or
+  `#define` for it.
 - **QOI and PEP** (`src/rtextures.c`), in `LoadImageFromMemory()`: the QOI part
   is still needed if `qoi_decode()` gets `fileData[12]`, the PEP part if
   `PEP_FREE(pepData)` comes after `image.data = pepData`.
