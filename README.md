@@ -42,6 +42,8 @@ cmake --build --preset debug --target run
 |---|---|
 | `make` | compile the debug build, into `build/` |
 | `make run` | compile what changed, then play |
+| `make sanitize` | the debug build with AddressSanitizer and UndefinedBehaviorSanitizer, into `build/sanitize/` |
+| `make sanitize-run` | play that one: a memory bug stops it with a report ("Finding memory bugs") |
 | `make rel` | compile the build you ship, into `build/release/` |
 | `make web` | compile for the browser, into `build/web/` |
 | `make serve` | play the web build: emrun serves it and opens your browser |
@@ -309,6 +311,7 @@ set(RAYLIB_DISABLED_MODULES "")  # any of: rshapes rtextures rtext rmodels raudi
 set(WINDOWS_BACKEND "glfw")      # glfw | win32 | rgfw
 set(LINUX_BACKEND "glfw")        # glfw | rgfw | drm
 set(LINUX_WAYLAND OFF)           # ON: GLFW's native Wayland backend
+set(HARDENING ON)                # OFF: the release without its protections
 set(DEV_C_COMPILER "default")    # default | clang | clang-cl | gcc | mingw | msvc | tcc
 set(DEV_CPP_COMPILER "default")  # default | clang | clang-cl | gcc | mingw | msvc
 set(DEV_LINKER "auto")           # auto | mold | lld | default
@@ -332,35 +335,41 @@ a typo stops the build with a message that names the setting.
   younger; `drm` runs on a text console with no desktop at all ("A text console
   (DRM)"). Switching is safe in an existing build: the choice is worked out
   again on every configure.
+- `HARDENING` → the release's protections against memory bugs, on by default
+  and in every target: "How hardened is a release build?" goes through each
+  one, compiler by compiler. The debug build is never hardened; `make sanitize`
+  is its way of finding the same bugs ("Finding memory bugs").
 - `DEV_C_COMPILER`, `DEV_CPP_COMPILER`, `DEV_LINKER` → your local compilers and
-  linker, **debug preset only**. `release`, `web` and the two `windows` ones
-  build in directories of their own with the platform's defaults, so nothing
-  here can change what you ship. `"default"` is that same default: on Windows,
-  clang-cl in Visual Studio's x64 prompt when its Clang tools are installed,
-  MSVC there when they are not, and MinGW anywhere else ("Setting up"). The C
-  compiler builds raylib, GLFW and your `.c` files, the C++ one your `.cpp`
-  files, and they need not be the same: Clang for the C and GCC for the C++
-  works, and so does tcc for the C ("tcc", below). `msvc` and `clang-cl` build
-  for MSVC's own runtime, on Windows, and each pairs with itself only. `mold` is
-  worth having on PATH on Linux; it makes the link almost free. Going back to
-  `"default"` needs a `make clean` — CMake cannot un-pick a compiler, and the
-  build tells you so instead of quietly keeping the old one.
+  linker, **debug and sanitize presets only**. `release`, `web` and the two
+  `windows` ones build in directories of their own with the platform's default
+  compilers, so nothing here can change what you ship. `"default"` is that same
+  default: on Windows, clang-cl in Visual Studio's x64 prompt when its Clang
+  tools are installed, MSVC there when they are not, and MinGW anywhere else
+  ("Setting up"). The C compiler builds raylib, GLFW and your `.c` files, the
+  C++ one your `.cpp` files, and they need not be the same: Clang for the C and
+  GCC for the C++ works, and so does tcc for the C ("tcc", below). `msvc` and
+  `clang-cl` build for MSVC's own runtime, on Windows, and each pairs with
+  itself only. `mold` is worth having on PATH on Linux; it makes the link almost
+  free. Going back to `"default"` needs a `make clean` — CMake cannot un-pick a
+  compiler, and the build tells you so instead of quietly keeping the old one.
 
 Every build starts by naming the compilers it really got:
 
 ```
 ===INITIALIZING DEBUG BUILD WITH GCC===
 ===INITIALIZING DEBUG BUILD WITH TCC (C) AND GCC (C++)===
-===INITIALIZING RELEASE BUILD WITH MINGW===
-===INITIALIZING RELEASE BUILD WITH CLANG-CL===
+===INITIALIZING DEBUG BUILD WITH CLANG, ASAN AND UBSAN===
+===INITIALIZING HARDENED RELEASE BUILD WITH MINGW===
+===INITIALIZING HARDENED RELEASE BUILD WITH CLANG-CL===
 ```
 
-They are named by what they are, not by what they are called. When CMake
-configures, it compiles a test file with each compiler and works out which one
-it really is, and the build holds that against `config.cmake`: a `gcc` that
-turns out to be Clang — as it does on macOS — stops the configure with a message
-rather than building under the wrong name. Ninja's line just above the banner
-gives each compiler's path.
+`HARDENED` is a release with `HARDENING` on, and `ASAN AND UBSAN` the
+sanitize build. The compilers are named by what they are, not by what they are
+called. When CMake configures, it compiles a test file with each compiler and
+works out which one it really is, and the build holds that against
+`config.cmake`: a `gcc` that turns out to be Clang — as it does on macOS — stops
+the configure with a message rather than building under the wrong name. Ninja's
+line just above the banner gives each compiler's path.
 
 ### C and C++ standards
 
@@ -722,6 +731,195 @@ What is deliberately left off, because each one trades something away:
   every release. Worth it for a CPU-bound game; many raylib games are bound by
   the GPU and the frame cap instead.
 
+### How hardened is a release build?
+
+With `HARDENING ON` in `config.cmake`, the default, the builds you ship — `make
+rel`, `make win` and `make win-clang-cl` — compile raylib, GLFW, your game and
+any library you add with the protections their compiler and linker have
+against memory bugs: the buffer that overflows, the index out of range, the
+variable nobody initialized. In code without such a bug they change nothing.
+In code with one, they stop the game where the bug happens, instead of letting
+it run on with memory gone wrong — which is what someone needs to turn a
+crafted level, save file, image or network packet into code of their own,
+running on the player's machine.
+
+| | GCC, Clang on Linux | MinGW | MSVC, clang-cl | macOS |
+|---|---|---|---|---|
+| `memcpy()` and friends check their destination | `_FORTIFY_SOURCE=3` | `_FORTIFY_SOURCE=3` | — | `_FORTIFY_SOURCE=3` |
+| The C++ library checks every index | `_GLIBCXX_ASSERTIONS` | `_GLIBCXX_ASSERTIONS` | `_MSVC_STL_HARDENING` | `_LIBCPP_HARDENING_MODE` |
+| A canary guards the return address | `-fstack-protector-strong` | `-fstack-protector-strong` | `/GS`, in every build | `-fstack-protector-strong` |
+| Locals start at zero | `-ftrivial-auto-var-init=zero` | the same | clang-cl only, the same | the same |
+| No jumping the stack's guard page | `-fstack-clash-protection` | always | always | — |
+| The processor checks returns and jumps | `-fcf-protection=full` (x86), `-mbranch-protection=standard` (64-bit ARM) | — | `/CETCOMPAT` (x64) | — |
+| Indirect calls only reach real functions | — | — | `/guard:cf` | — |
+| A new address every run (ASLR), no code on the stack | `-fPIE -pie`, `-z noexecstack` | `--dynamicbase --high-entropy-va --nxcompat` | always | always |
+| Calls into shared libraries cannot be redirected | `-z relro -z now` | — | — | — |
+
+What each one does:
+
+- **`_FORTIFY_SOURCE`** turns `memcpy(buf, src, n)` into a checked call wherever
+  the compiler knows how big `buf` is, and an `n` that does not fit stops the
+  game with `*** buffer overflow detected ***`. The same goes for `strcpy()`,
+  `sprintf()`, `snprintf()`, `memset()`, `read()`, `fgets()` and dozens more.
+  That is the safer `memcpy()` C has, with nothing in your code to change; the
+  `_s` functions of C11, `memcpy_s()` and the rest, are no alternative, as only
+  Microsoft's C library has them. Level 3 also knows sizes that exist only
+  while the game runs, like `malloc(n)`'s; it needs GCC 12 or Clang 9, and
+  older ones get level 2. It needs optimization too, which is one reason the
+  debug build could not have it. MSVC's C library has no such thing.
+- **The C++ library's checks**: `v[i]` with `i` out of range, `front()` of an
+  empty vector, a `std::span` or a `std::string_view` read past its end — each
+  stops the game instead of reading or writing whatever lies beyond. Each library
+  has its own switch: libstdc++, GCC's, which Clang uses too on Linux and MinGW;
+  libc++ from LLVM 18, on macOS; and Microsoft's from Visual Studio 2022 17.14.
+  C++26 makes this part of the standard, as a "hardened implementation".
+- **The stack canary**: a random value between a function's arrays and its
+  return address, checked before the function returns. An overflow that runs
+  over the return address stops the game (`*** stack smashing detected ***`)
+  instead of returning wherever the overflow says. MSVC and clang-cl do this in
+  every build already, as `/GS`.
+- **Locals at zero**: a variable with no initializer starts at zero, not with
+  whatever an earlier function left on the stack, so a forgotten initialization
+  is an ordinary bug instead of a leak of old data or a pointer to anywhere. GCC
+  12 and Clang 16; MSVC has nothing like it.
+- **Stack clash protection**: a huge local array, or `alloca()`, cannot leap
+  over the guard page below the stack into the heap or another thread's stack.
+  Windows programs probe their stack this way in every build.
+- **CET, PAC and BTI**: the processor itself keeps its own copy of every return
+  address, and checks that indirect jumps land where jumps may land. On
+  Windows, `/CETCOMPAT` lets Windows 10 and 11 turn the shadow stack on, on
+  Intel's 11th generation and AMD's Zen 3 and later. On Linux the executable
+  carries the marks, and the protection is on wherever the processor, the
+  kernel and the C library do their part.
+- **Control Flow Guard**, MSVC and clang-cl: an indirect call — a function
+  pointer, a virtual function — may only go to the start of a real function,
+  not wherever an overwritten pointer says.
+- **PIE, `noexecstack`, RELRO and BIND_NOW**, on Linux and the BSDs: the game
+  loads at a new address every run, so an attacker cannot know where its code
+  is; its stack holds data, never code; and the table its calls into shared
+  libraries go through is filled in at start and then made read-only. Windows has
+  the first two in every build (ASLR, DEP), and MinGW asks for them by name,
+  because binutils only turns them on by itself from version 2.36.
+
+Each flag is tried on a test program first, so a compiler too old for one
+builds without it rather than failing. The configure lists what is on, and
+what this compiler cannot do:
+
+```
+-- HARDENING: -D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS -fstack-protector-strong ...
+-- HARDENING: not available with this compiler: -ftrivial-auto-var-init=zero
+```
+
+That one is GCC 11, Ubuntu 22.04's: no zeroed locals, and fortify at level 2.
+The banner says `HARDENED RELEASE BUILD` whenever `HARDENING` is on.
+
+What it costs: a few percent. The template's own game grows by 1.4% with
+clang-cl and by 2% to 4% with GCC, Clang and MinGW. Measured on Linux on work
+that keeps the processor busy — raylib's image functions, and sorting and maps
+in the C++ library — the release took 1.5% longer with GCC and 3% with Clang;
+a game bound by the GPU or by its frame cap shows none of it. Google turned the
+C++ library's checks on across its servers for an average cost of 0.3%.
+
+How much a compiler does with `HARDENING OFF` is up to whoever packaged it.
+Ubuntu's GCC has most of the list on by itself, Ubuntu's Clang PIE and little
+else, MinGW ASLR and DEP, and MSVC and clang-cl those and `/GS`. `HARDENING ON`
+makes it the same list whichever compiler builds the game.
+
+What is deliberately left out, because each one trades too much away:
+
+- **The sanitizers**, ASan and UBSan. They find far more — use after free,
+  overflows on the heap, undefined behavior — but make the game two to four
+  times as slow and are not made for shipping. They have a build of their own:
+  `make sanitize`, next.
+- **The C++ libraries' debug modes**, `_GLIBCXX_DEBUG` and
+  `_ITERATOR_DEBUG_LEVEL=2`, which also check iterators: they change the
+  library's ABI and cost far more. MSVC's and clang-cl's debug build has the
+  second already.
+- **`/sdl`**, MSVC's own bundle: a stricter `/GS`, and some warnings made
+  errors — among them the one about C functions Microsoft deems unsafe, such
+  as `strcpy()`, so a game that builds in debug would stop building in
+  release. clang-cl ignores it.
+- **Clang's `-fsanitize=cfi`**, a finer Control Flow Guard: it needs every
+  library built for it, with LTO.
+- **Spectre mitigations** (`/Qspectre`, `-mspeculative-load-hardening`): costly,
+  and for programs that keep secrets from other code running in the same
+  process, such as a browser — which a game is not.
+
+**The web** is left as it is. WebAssembly keeps return addresses out of the
+program's own memory and checks the type of every indirect call, so the canary,
+CFG and CET have nothing to protect there; ASLR, PIE and RELRO do not exist in
+it; Emscripten's C library has no `_FORTIFY_SOURCE`; and the browser's sandbox
+keeps a bug inside the page.
+
+## Finding memory bugs: make sanitize
+
+```bash
+make sanitize-run   # or: cmake --preset sanitize && cmake --build --preset sanitize --target run
+```
+
+`make sanitize` is the debug build once more, in `build/sanitize/`, with two of
+the compiler's own bug finders compiled into every target — raylib, GLFW, your
+game and any library you add:
+
+- **AddressSanitizer** (ASan) stops the game at the first read or write out of
+  bounds, on the heap, the stack or in a global; at the first use of memory
+  after `free()` or `delete`; and at a double free. It says where it happened,
+  where that memory came from and, for a use after free, where it was freed. At
+  exit it lists the memory that was never freed.
+- **UndefinedBehaviorSanitizer** (UBSan) reports undefined behavior as it
+  happens — a signed overflow, a shift too far, a null or misaligned pointer —
+  and lets the game run on.
+
+Every report names the file and the line. A `malloc(8)` written one past its
+end, on line 25:
+
+```
+==16796==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x5020000bfcf8 ...
+WRITE of size 1 at 0x5020000bfcf8 thread T0
+    #0 0x5582bfa2e6fe in main src/main.cpp:25
+    ...
+0x5020000bfcf8 is located 0 bytes after 8-byte region [0x5020000bfcf0,0x5020000bfcf8)
+allocated by thread T0 here:
+    #0 0x7f77d7cfd9c7 in malloc ...
+    #1 0x5582bfa2e668 in main src/main.cpp:25
+```
+
+And `INT_MAX + 1`, from UBSan:
+
+```
+src/main.cpp:29:71: runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'
+```
+
+Where the release's `HARDENING` stops a few kinds of bug once the game has
+shipped, the sanitizers find many more kinds while you develop, at a price only
+a developer pays: the game runs two to four times as slow as the debug build
+and uses more memory. Run it when something is odd, before a release, or as a
+habit — a bug they find is one your players never meet.
+
+It is the debug build in everything else: `DEV_C_COMPILER`,
+`DEV_CPP_COMPILER` and `DEV_LINKER` apply, as do `-O0` and the debugger.
+
+- **GCC and Clang**, on Linux, macOS and the BSDs, have both sanitizers.
+  Their runtime is a library of its own, which not every distribution installs
+  with the compiler: Debian and Ubuntu do with GCC, and have Clang's as
+  `libclang-rt-<version>-dev` (`libclang-rt-18-dev` for Ubuntu 24.04's Clang);
+  Fedora has GCC's as `libasan` and `libubsan`. When it is missing, the
+  configure stops and says what to look for, before anything is built.
+- **MSVC**, on Windows, has AddressSanitizer and no UBSan. It comes with Visual
+  Studio's C++ workload, as "C++ AddressSanitizer" ("MSVC AddressSanitizer" in
+  Visual Studio 2026), ticked by default, and its DLL is copied next to
+  `game.exe`. In Visual Studio's x64 prompt, `make sanitize` builds with MSVC
+  even where the debug build gets clang-cl: clang-cl only brings its
+  sanitizers' libraries along when it links the program itself, and CMake
+  links with lld-link.
+- **tcc and MinGW** have none, and `make sanitize` says so.
+
+Both runtimes take options from the environment. `ASAN_OPTIONS=detect_leaks=0`
+turns the leak report off, should a library you cannot fix — a graphics driver,
+say — fill it; `UBSAN_OPTIONS=halt_on_error=1` makes UBSan stop at its first
+report too, and `print_stacktrace=1` gives each report its call stack. In
+`cmd.exe`, that is `set ASAN_OPTIONS=...` before the command.
+
 ## The web, and ASYNCIFY
 
 `while (!WindowShouldClose())` runs in a browser here — there is no `#if` in
@@ -1027,8 +1225,10 @@ turn off.
 The release flags are CMake's own for the Release build type,
 `CMAKE_C_FLAGS_RELEASE` and `CMAKE_CXX_FLAGS_RELEASE` (`-O3 -DNDEBUG`, and
 `/O2 /Ob2 /DNDEBUG` with MSVC), plus the production block right below the debug
-lines, which "How optimized is a release build?" goes through. To replace
-them, set them in the same place:
+lines, which "How optimized is a release build?" goes through, and
+`HARDENING`'s, from `cmake/hardening.cmake` ("How hardened is a release
+build?"). The sanitize build's are in `cmake/sanitize.cmake`. To replace the
+release flags, set them in the same place:
 
 ```cmake
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
@@ -1168,11 +1368,14 @@ your code now.
 ```
 config.cmake            your settings — the only non-code file you edit
 CMakeLists.txt          the build, written to be read top to bottom
-CMakePresets.json       the five builds: debug, release, web and the two windows
+CMakePresets.json       the six builds: debug, sanitize, release, web and the
+                        two windows
 cmake/                  check_config.cmake; dev_compiler.cmake,
                         default_compiler.cmake, compilers.cmake, tcc.cmake (with
                         tcc_fixup.c) and dev_linker.cmake, for the toolchain;
-                        and windows_cross.cmake (MinGW-w64) and
+                        sanitize.cmake and hardening.cmake, for the sanitize
+                        build and the release's protections; and
+                        windows_cross.cmake (MinGW-w64) and
                         windows_clang_cl.cmake, for the Windows builds from
                         Linux
 src/main.cpp            your game. Every .cpp and .c under src/ is compiled
@@ -1180,7 +1383,7 @@ include/                your headers
 resources/              your assets
 thirdparty/raylib/      raylib 6.2, plus the changes marked PATCHED
 thirdparty/raylib-cpp/  raylib-cpp's headers, there if you want them
-Makefile                the ten commands above
+Makefile                the twelve commands above
 ```
 
 Adding a source file needs **no CMake edit**: `src/` is globbed recursively, and
@@ -1210,7 +1413,7 @@ at each step. The parts worth slowing down for:
 - **Generator expressions.** `$<CONFIG:Debug>` picks the MSVC runtime per
   configuration, `$<BOOL:...>` turns `ON`/`OFF` into the `1`/`0` your code
   sees, and `$<TARGET_FILE_DIR:...>` is where the executable ends up.
-- **Presets.** `CMakePresets.json` is the five builds; each gets its own
+- **Presets.** `CMakePresets.json` is the six builds; each gets its own
   directory, so switching between them never rebuilds the others. The two
   `windows` ones have a `condition` that hides them on Windows, where they
   have nothing to do.
@@ -1220,6 +1423,12 @@ at each step. The parts worth slowing down for:
   runtime library that only the compiler itself used to add to a link. It also
   shows a compiler launcher, `CMAKE_C_COMPILER_LAUNCHER`, the way ccache gets
   in front of a compiler, put to another use: correcting what tcc writes.
+- **Asking the compiler first.** `cmake/hardening.cmake` tries every flag on a
+  test program — `check_c_compiler_flag()`, `check_cxx_source_compiles()` —
+  and keeps the ones that work, so one file serves GCC 11 and GCC 16 alike.
+  `cmake/sanitize.cmake` links a test program before anything is built, so a
+  missing runtime stops the configure with its name rather than the build with
+  a linker error.
 - **Toolchain files.** The web and windows presets each name one: a file CMake
   reads before `project()`, which says what system the build is for and which
   compiler makes it. Emscripten ships its own; `cmake/windows_cross.cmake` is

@@ -17,6 +17,17 @@
             }
         },
         {
+            "name": "sanitize",
+            "displayName": "Debug, with AddressSanitizer and UndefinedBehaviorSanitizer",
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/build/sanitize",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PRODUCTION_BUILD": "OFF",
+                "SANITIZE": "ON"
+            }
+        },
+        {
             "name": "release",
             "displayName": "Release",
             "inherits": "base",
@@ -74,6 +85,10 @@
         {
             "name": "debug",
             "configurePreset": "debug"
+        },
+        {
+            "name": "sanitize",
+            "configurePreset": "sanitize"
         },
         {
             "name": "release",

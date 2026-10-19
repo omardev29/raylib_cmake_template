@@ -7,6 +7,7 @@ include(config.cmake)
 include(cmake/check_config.cmake) # a typo in config.cmake stops here, by name
 
 option(PRODUCTION_BUILD "Optimized build that reads resources/ next to the executable" OFF)
+option(SANITIZE "Debug build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 # The presets always name a build type. Plain `cmake -B build` gets Debug rather
 # than none at all, which would mean no optimization and no debug info.
@@ -66,6 +67,10 @@ if(NOT MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 endif()
 
+# The sanitize preset (make sanitize): this debug build, with AddressSanitizer
+# and UndefinedBehaviorSanitizer.
+include(cmake/sanitize.cmake)
+
 # Production builds (the release, web and windows presets): optimized as far as
 # a binary can go and still run on any machine — README.md says what is on and
 # what is deliberately left off. -O3 itself comes from the Release build type.
@@ -99,6 +104,10 @@ if(PRODUCTION_BUILD)
     endif()
   endif()
 endif()
+
+# HARDENING from config.cmake: the production builds' protections against
+# memory bugs, and the configure's list of them.
+include(cmake/hardening.cmake)
 
 # --- raylib ---------------------------------------------------------------------
 
@@ -208,6 +217,14 @@ endif()
 # uses std::string the .exe stops starting on any machine without MSYS2.
 if(MINGW)
   target_link_options(${GAME_NAME} PRIVATE -static)
+endif()
+
+# make sanitize with MSVC: AddressSanitizer's DLL next to the game, so that
+# it starts outside Visual Studio's prompt too (cmake/sanitize.cmake).
+if(SANITIZE_RUNTIME)
+  add_custom_command(TARGET ${GAME_NAME} POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${SANITIZE_RUNTIME}" "$<TARGET_FILE_DIR:${GAME_NAME}>"
+    VERBATIM)
 endif()
 
 # PRODUCTION_BUILD (1 or 0) and RESOURCES_PATH, for your code. In development

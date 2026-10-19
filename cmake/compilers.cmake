@@ -7,6 +7,8 @@
 #
 #   ===INITIALIZING DEBUG BUILD WITH GCC===
 #   ===INITIALIZING DEBUG BUILD WITH TCC (C) AND GCC (C++)===
+#   ===INITIALIZING HARDENED RELEASE BUILD WITH CLANG===
+#   ===INITIALIZING DEBUG BUILD WITH GCC, ASAN AND UBSAN===
 #
 # Included right after project(), so a mismatch stops the configure before
 # anything is built with the wrong compiler.
@@ -92,7 +94,17 @@ if(COMPILER_NAME_C STREQUAL COMPILER_NAME_CXX)
 else()
   set(_with "${COMPILER_NAME_C} (C) AND ${COMPILER_NAME_CXX} (C++)")
 endif()
+# And what else it is: hardened (cmake/hardening.cmake), or sanitized
+# (cmake/sanitize.cmake), where MSVC has AddressSanitizer only.
+set(_hardened "")
+if(PRODUCTION_BUILD AND HARDENING AND NOT EMSCRIPTEN)
+  set(_hardened "HARDENED ")
+elseif(SANITIZE AND MSVC)
+  string(APPEND _with ", ASAN")
+elseif(SANITIZE)
+  string(APPEND _with ", ASAN AND UBSAN")
+endif()
 add_custom_target(banner
-  COMMAND "${CMAKE_COMMAND}" -E echo "===INITIALIZING $<UPPER_CASE:$<CONFIG>> BUILD WITH ${_with}==="
+  COMMAND "${CMAKE_COMMAND}" -E echo "===INITIALIZING ${_hardened}$<UPPER_CASE:$<CONFIG>> BUILD WITH ${_with}==="
   COMMENT "C: ${CMAKE_C_COMPILER}, C++: ${CMAKE_CXX_COMPILER}"
   VERBATIM)

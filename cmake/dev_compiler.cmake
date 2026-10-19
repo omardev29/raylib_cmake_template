@@ -1,4 +1,5 @@
-# DEV_C_COMPILER and DEV_CPP_COMPILER from config.cmake. Debug preset only.
+# DEV_C_COMPILER and DEV_CPP_COMPILER from config.cmake. The debug and sanitize
+# presets only.
 #
 # Included BEFORE project(), because project() is where CMake picks the
 # compilers and locks them into the build directory's cache. A plain variable

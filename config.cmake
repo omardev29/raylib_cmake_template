@@ -63,11 +63,27 @@ set(LINUX_BACKEND "glfw")
 #        SetWindowPosition() do not work there.
 set(LINUX_WAYLAND OFF)
 
-# Your machine, for the debug preset only. The release, web and windows presets
-# always build with the platform's defaults, so nothing here can change what
-# you ship. "default" is that same default. On Windows it is clang-cl in Visual
-# Studio's x64 prompt when "C++ Clang tools for Windows" is installed, MSVC
-# there when it is not, and MinGW anywhere else: README.md, "Setting up".
+# What you ship, hardened: ON | OFF. Release builds only — the release, windows
+# and windows-clang-cl presets — never the debug build, and not the web either,
+# which runs inside the browser's sandbox.
+#   ON   turns on the compiler's and the linker's protections against memory
+#        bugs, in raylib and GLFW as much as in your game. memcpy() and the
+#        like check the size of their destination, the C++ library checks
+#        every index, the stack carries a canary, and more: README.md, "How
+#        hardened is a release build?", lists each one for each compiler. A
+#        buffer overflow then stops the game on the spot, instead of handing
+#        it over to whoever crafted the level, image or save file that caused
+#        it. Code without such bugs runs as before, a few percent bigger.
+#   OFF  each compiler's own defaults, which differ: Ubuntu's GCC has most of
+#        this on anyway, Clang and MinGW hardly any of it.
+set(HARDENING ON)
+
+# Your machine, for the debug and sanitize presets only. The release, web and
+# windows presets always build with the platform's default compilers, so
+# nothing here can change what you ship. "default" is that same default. On
+# Windows it is clang-cl in Visual Studio's x64 prompt when "C++ Clang tools
+# for Windows" is installed, MSVC there when it is not, and MinGW anywhere
+# else: README.md, "Setting up".
 #
 #   DEV_C_COMPILER    default | clang | clang-cl | gcc | mingw | msvc | tcc
 #   DEV_CPP_COMPILER  default | clang | clang-cl | gcc | mingw | msvc

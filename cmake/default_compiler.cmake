@@ -6,7 +6,9 @@
 # Visual Studio's x64 prompt, clang-cl when "C++ Clang tools for Windows" is
 # installed, and MSVC when it is not; anywhere else, MinGW. clang-cl and MSVC
 # take Windows' headers and libraries from that prompt, so outside one neither
-# is tried. README.md, "Setting up", has the prompt.
+# is tried. README.md, "Setting up", has the prompt. make sanitize skips
+# clang-cl for MSVC, whose AddressSanitizer a CMake build can link
+# (cmake/sanitize.cmake).
 #
 # Before project(), which is where CMake picks the compilers, and only on a
 # build directory's first configure: after that, its cache has them. CC and
@@ -24,7 +26,7 @@ endif()
 # VCINSTALLDIR, where the prompt need not put it on PATH; LLVM's, installed on
 # its own, is found on PATH first.
 if(DEFINED ENV{VCINSTALLDIR})
-  if("$ENV{VSCMD_ARG_TGT_ARCH}" STREQUAL "x64")
+  if("$ENV{VSCMD_ARG_TGT_ARCH}" STREQUAL "x64" AND NOT SANITIZE)
     file(TO_CMAKE_PATH "$ENV{VCINSTALLDIR}" _vc)
     find_program(_default_clang_cl NAMES clang-cl PATHS "${_vc}/Tools/Llvm/x64/bin" NO_CACHE)
   endif()

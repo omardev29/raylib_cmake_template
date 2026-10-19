@@ -2,6 +2,9 @@
 #
 #   make          compile the debug build, into build/
 #   make run      compile what changed, then play
+#   make sanitize      the debug build with AddressSanitizer and
+#                      UndefinedBehaviorSanitizer, into build/sanitize/
+#   make sanitize-run  play that one: a memory bug stops it with a report
 #   make rel      compile the build you ship, into build/release/
 #   make web      compile for the browser, into build/web/ (needs the emsdk)
 #   make serve    play the web build: emrun serves it and opens your browser
@@ -36,6 +39,12 @@ dev: build/build.ninja
 run: build/build.ninja
 	"cmake" --build --preset debug --target run
 
+sanitize: build/sanitize/build.ninja
+	"cmake" --build --preset sanitize
+
+sanitize-run: build/sanitize/build.ninja
+	"cmake" --build --preset sanitize --target run
+
 rel: build/release/build.ninja
 	"cmake" --build --preset release
 
@@ -68,6 +77,9 @@ clean:
 build/build.ninja: CMakePresets.json
 	"cmake" --preset debug
 
+build/sanitize/build.ninja: CMakePresets.json
+	"cmake" --preset sanitize
+
 build/release/build.ninja: CMakePresets.json
 	"cmake" --preset release
 
@@ -80,4 +92,4 @@ build/windows/build.ninja: CMakePresets.json
 build/windows-clang-cl/build.ninja: CMakePresets.json
 	"cmake" --preset windows-clang-cl
 
-.PHONY: dev run rel web serve win win-run win-clang-cl win-clang-cl-run clean
+.PHONY: dev run sanitize sanitize-run rel web serve win win-run win-clang-cl win-clang-cl-run clean

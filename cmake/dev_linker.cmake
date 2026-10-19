@@ -1,4 +1,4 @@
-# DEV_LINKER from config.cmake. Debug preset only.
+# DEV_LINKER from config.cmake. The debug and sanitize presets only.
 #
 # Included AFTER project(): choosing a linker means checking that it links, and
 # checking means compiling a test program, which needs a compiler.
