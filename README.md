@@ -547,6 +547,15 @@ halves of that, and it is one line at the top of `main()`:
 #endif
 ```
 
+File names are UTF-8 on every system, so `canción.ogg` loads as it is spelled,
+from a folder like `C:\Users\José\` too. raylib passes them on to the C library
+as UTF-8, which Windows would read in the machine's code page instead —
+Windows-1252 in Western Europe, where `é` is not the two bytes UTF-8 makes of
+it. So every Windows build embeds a manifest, `cmake/windows.manifest`, that
+makes UTF-8 the game's code page; Windows has honored it since Windows 10 1903
+(May 2019). MSVC also gets `/utf-8`, so that it reads your source files as
+UTF-8 and writes your strings that way, as the other compilers do.
+
 ## The three targets
 
 **Linux and Windows** are the same command on each machine — and Linux can
@@ -1187,9 +1196,9 @@ only things that are not negotiable:
 |---|---|---|
 | top | reads `config.cmake`, checks it, defaults to a Debug build | New settings go in `config.cmake`, their checks in `cmake/check_config.cmake`. |
 | toolchain | `DEV_C_COMPILER`, `DEV_CPP_COMPILER` and `DEV_LINKER`; Windows' default compiler; the check of what `project()` found, and the banner; tcc | Keep the order (rule 1). Never use them? Delete the includes, the files, their settings and checks, and the `add_dependencies()` on `banner`. |
-| for every target | standards, static linking, the MSVC runtime, `compile_commands.json`, ccache, `-O0` in debug, production optimization | Flags for every target go here (rule 2; "Compiler flags", below). ccache can go. |
-| raylib | backend, Wayland, disabled modules, raylib's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
-| your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
+| for every target | standards, static linking, the MSVC runtime, MSVC's UTF-8 and `__cplusplus`, `compile_commands.json`, ccache, `-O0` in debug, production optimization | Flags for every target go here (rule 2; "Compiler flags", below). ccache can go. |
+| raylib | backend, Wayland, disabled modules, raylib's and GLFW's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
+| your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, the Windows manifest, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |
 | run | the `run` target; under Wine for the Windows build from Linux | Can go; then take `run`, `serve`, `win-run` and `win-clang-cl-run` out of the Makefile too. |
 
@@ -1203,6 +1212,9 @@ Some things look removable and are not:
   code out.
 - **`-static` on MinGW**, and **`CMAKE_MSVC_RUNTIME_LIBRARY`**: without them the
   release needs DLLs that a player's machine does not have.
+- **The Windows manifest** (`cmake/windows.manifest`), and MSVC's `/utf-8`:
+  without them a file whose name or folder has an accent does not open on
+  Windows ("Resources").
 
 ### Compiler flags
 
@@ -1374,7 +1386,8 @@ cmake/                  check_config.cmake; dev_compiler.cmake,
                         default_compiler.cmake, compilers.cmake, tcc.cmake (with
                         tcc_fixup.c) and dev_linker.cmake, for the toolchain;
                         sanitize.cmake and hardening.cmake, for the sanitize
-                        build and the release's protections; and
+                        build and the release's protections; windows.manifest
+                        (with windows.rc), the game's manifest on Windows; and
                         windows_cross.cmake (MinGW-w64) and
                         windows_clang_cl.cmake, for the Windows builds from
                         Linux

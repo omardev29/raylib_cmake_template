@@ -2,6 +2,16 @@
 # that names the setting, instead of surfacing later as a compiler, raylib or
 # linker error that never mentions it.
 
+# First, the one thing about the project's folder that CMake itself cannot
+# take: a # or a ; anywhere in its path, as in "Game #2". The configure would
+# stop much later, in GLFW's files, with a message that never says why.
+if(CMAKE_SOURCE_DIR MATCHES "[#;]" OR CMAKE_BINARY_DIR MATCHES "[#;]")
+  message(FATAL_ERROR
+    "The project is in \"${CMAKE_SOURCE_DIR}\", and CMake cannot build in a "
+    "folder whose path has a # or a ; in it. Rename the folder, or move the "
+    "project to another one.")
+endif()
+
 function(expect_one_of setting)
   if(NOT "${${setting}}" IN_LIST ARGN)
     list(JOIN ARGN " | " choices)

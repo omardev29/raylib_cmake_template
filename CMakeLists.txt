@@ -45,6 +45,15 @@ set(BUILD_SHARED_LIBS OFF)
 # CMake's own variable, which clang-cl sets too: it takes MSVC's flags.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+# MSVC: source files and string literals in UTF-8, as every other compiler has
+# them. Left to itself, MSVC reads and writes them in the code page of the
+# machine that compiles, which the game's own code page (UTF-8, below) is not.
+# And __cplusplus as every other compiler has it too, the standard you asked
+# for (202002L for C++20), rather than the 199711L MSVC keeps by default.
+if(MSVC)
+  add_compile_options(/utf-8 $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>)
+endif()
+
 # build/compile_commands.json, which editors read to understand your code.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -89,7 +98,18 @@ if(PRODUCTION_BUILD)
     check_ipo_supported(RESULT LTO_SUPPORTED OUTPUT LTO_ERROR)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO_SUPPORTED})
     if(NOT LTO_SUPPORTED)
-      message(STATUS "No link-time optimization here: ${LTO_ERROR}")
+      # CMake's reason can be the whole log of its test build. The line worth
+      # showing is the first one that names an error, past the commands that
+      # ninja echoes.
+      string(REGEX MATCHALL "[^\n]*(error|not found|cannot)[^\n]*" _lto_lines "${LTO_ERROR}")
+      set(_lto_why "${LTO_ERROR}")
+      foreach(_line IN LISTS _lto_lines)
+        if(NOT _line MATCHES "^(ninja|FAILED|\\[)")
+          string(STRIP "${_line}" _lto_why)
+          break()
+        endif()
+      endforeach()
+      message(STATUS "No link-time optimization here: ${_lto_why}")
     endif()
 
     # Drop whatever nothing calls, and the symbol table nobody reads. MSVC does
@@ -165,14 +185,19 @@ foreach(module IN LISTS RAYLIB_DISABLED_MODULES)
   target_compile_definitions(raylib PRIVATE "SUPPORT_MODULE_${module}=0")
 endforeach()
 
-# raylib is compiled quietly: what it warns about changes with every compiler,
-# is not yours to fix, and would bury the warnings that are. -w silences
-# warnings, not errors — raylib's own -Werror=... flags still stop the build.
-if(MSVC)
-  target_compile_options(raylib PRIVATE /w)
-else()
-  target_compile_options(raylib PRIVATE -w)
-endif()
+# raylib and GLFW are compiled quietly: what they warn about changes with every
+# compiler, is not yours to fix, and would bury the warnings that are. -w
+# silences warnings, not errors — raylib's own -Werror=... flags still stop
+# the build.
+foreach(_target IN ITEMS raylib glfw)
+  if(NOT TARGET ${_target})
+    continue()
+  elseif(MSVC)
+    target_compile_options(${_target} PRIVATE /w)
+  else()
+    target_compile_options(${_target} PRIVATE -w)
+  endif()
+endforeach()
 
 # Every build starts with ===INITIALIZING ... BUILD WITH ...=== (from
 # cmake/compilers.cmake): raylib and GLFW wait for it, and your game for them.
@@ -186,8 +211,10 @@ endif()
 add_executable(${GAME_NAME})
 
 # Every .cpp and .c under src/ is compiled. Adding a file needs no CMake edit:
-# CONFIGURE_DEPENDS makes the build notice a new one on its own.
-file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.c)
+# CONFIGURE_DEPENDS makes the build notice a new one on its own. A [ in the
+# project's path, as in "game [v2]", would start a pattern: it is escaped.
+string(REPLACE "[" "[[]" GLOB_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS "${GLOB_DIR}/src/*.cpp" "${GLOB_DIR}/src/*.c")
 target_sources(${GAME_NAME} PRIVATE ${GAME_SOURCES})
 target_include_directories(${GAME_NAME} PRIVATE include)
 
@@ -217,6 +244,31 @@ endif()
 # uses std::string the .exe stops starting on any machine without MSYS2.
 if(MINGW)
   target_link_options(${GAME_NAME} PRIVATE -static)
+endif()
+
+# Windows: the game's file names in UTF-8, as on every other system. raylib
+# hands the names it gets to fopen(), which on Windows reads them in the
+# machine's code page — Windows-1252 in Western Europe — unless the program's
+# manifest asks for UTF-8, which Windows 10 1903 and later honor. Without it,
+# a file or folder with an accent in its name does not open: the debug build's
+# resources/ under C:\Users\José\, for one. cmake/windows.manifest is that
+# manifest, embedded as a resource. MinGW's windres finds it next to
+# cmake/windows.rc. For MSVC and clang-cl the resource file is written here,
+# as CMake writes its own: rc.exe reads one in the machine's code page unless
+# told otherwise, and the manifest's path can have that é in it. Their linker
+# would add a manifest of its own, a second one: /MANIFEST:NO.
+if(WIN32)
+  if(MSVC)
+    set(WINDOWS_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/cmake/windows.manifest")
+    file(CONFIGURE OUTPUT windows.rc @ONLY CONTENT [[
+#pragma code_page(65001)
+1 24 "@WINDOWS_MANIFEST@"
+]])
+    target_sources(${GAME_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/windows.rc")
+    target_link_options(${GAME_NAME} PRIVATE /MANIFEST:NO)
+  else()
+    target_sources(${GAME_NAME} PRIVATE cmake/windows.rc)
+  endif()
 endif()
 
 # make sanitize with MSVC: AddressSanitizer's DLL next to the game, so that
@@ -285,7 +337,7 @@ if(EMSCRIPTEN)
   # The files cover an edit. resources.txt, their list, covers a new, deleted or
   # renamed one: `mv` keeps the old timestamp, so nothing would look newer than
   # the bundle. file(CONFIGURE) rewrites the list only when it changes.
-  file(GLOB_RECURSE RESOURCE_FILES CONFIGURE_DEPENDS resources/*)
+  file(GLOB_RECURSE RESOURCE_FILES CONFIGURE_DEPENDS "${GLOB_DIR}/resources/*")
   file(CONFIGURE OUTPUT resources.txt CONTENT "${RESOURCE_FILES}" @ONLY)
   set_property(TARGET ${GAME_NAME} APPEND PROPERTY LINK_DEPENDS
     ${RESOURCE_FILES} "${CMAKE_CURRENT_BINARY_DIR}/resources.txt")
