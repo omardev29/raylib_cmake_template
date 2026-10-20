@@ -6,7 +6,8 @@
 # Visual Studio's x64 prompt, clang-cl when "C++ Clang tools for Windows" is
 # installed, and MSVC when it is not; anywhere else, MinGW. clang-cl and MSVC
 # take Windows' headers and libraries from that prompt, so outside one neither
-# is tried. README.md, "Setting up", has the prompt. make sanitize skips
+# is tried. README.md, "Setting up", has the prompt, and "Editors" VS Code's
+# CMake Tools, which loads the same environment by itself. make sanitize skips
 # clang-cl for MSVC, whose AddressSanitizer a CMake build can link
 # (cmake/sanitize.cmake).
 #
@@ -22,15 +23,22 @@ endif()
 
 # Visual Studio's prompts set VCINSTALLDIR, and the x64 one says so in
 # VSCMD_ARG_TGT_ARCH: clang-cl builds 64-bit programs, and in a 32-bit prompt
-# it would get 32-bit libraries. Visual Studio's own clang-cl sits under
-# VCINSTALLDIR, where the prompt need not put it on PATH; LLVM's, installed on
-# its own, is found on PATH first.
+# it would get 32-bit libraries. VS Code's CMake Tools loads the same
+# environment by itself, but without VSCMD_ARG_TGT_ARCH; there the folder
+# cl.exe is in says it (bin/Hostx64/x64). Visual Studio's own clang-cl sits
+# under VCINSTALLDIR, where the prompt need not put it on PATH; LLVM's,
+# installed on its own, is found on PATH first.
 if(DEFINED ENV{VCINSTALLDIR})
-  if("$ENV{VSCMD_ARG_TGT_ARCH}" STREQUAL "x64" AND NOT SANITIZE)
+  find_program(_default_cl NAMES cl NO_CACHE)
+  set(_target "$ENV{VSCMD_ARG_TGT_ARCH}")
+  if(NOT _target AND _default_cl)
+    get_filename_component(_target "${_default_cl}" DIRECTORY)
+    get_filename_component(_target "${_target}" NAME)
+  endif()
+  if(_target STREQUAL "x64" AND NOT SANITIZE)
     file(TO_CMAKE_PATH "$ENV{VCINSTALLDIR}" _vc)
     find_program(_default_clang_cl NAMES clang-cl PATHS "${_vc}/Tools/Llvm/x64/bin" NO_CACHE)
   endif()
-  find_program(_default_cl NAMES cl NO_CACHE)
 endif()
 find_program(_default_gcc NAMES x86_64-w64-mingw32-gcc gcc NO_CACHE)
 find_program(_default_gxx NAMES x86_64-w64-mingw32-g++ g++ NO_CACHE)

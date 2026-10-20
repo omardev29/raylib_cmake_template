@@ -262,8 +262,9 @@ MSVC, Visual Studio's own compiler, and nothing else changes. Visual Studio
 can also open the folder directly, because it reads `CMakePresets.json`.
 
 Which compiler a Windows build gets when nothing names one: in Visual Studio's
-x64 prompt, clang-cl if "C++ Clang tools for Windows" is installed and MSVC if
-it is not; anywhere else, MinGW. clang-cl and MSVC take Windows' headers and
+x64 prompt, or in VS Code, whose CMake Tools loads the same environment by
+itself ("Editors"), clang-cl if "C++ Clang tools for Windows" is installed and
+MSVC if it is not; anywhere else, MinGW. clang-cl and MSVC take Windows' headers and
 libraries from that prompt, so outside one they are not tried. A build
 directory keeps what it got the first time, until `make clean`. To pick
 another: `DEV_C_COMPILER` and `DEV_CPP_COMPILER` in `config.cmake`, for the
@@ -306,6 +307,83 @@ project in WSL's own file system (under `~`), not under `/mnt/c`, where builds
 are several times slower. For the `.exe`, either use one of the ways above, or
 stay in WSL: `make win` builds it there as on any Linux ("Windows, from
 Linux"), and `make win-run` starts it on Windows itself, with no Wine.
+
+## Editors
+
+Configuring the debug build writes `build/compile_commands.json`: every source
+file with the exact command that compiles it. A language server reads it to
+see your code as the compiler does, with the same headers, defines and
+standard, and clangd, the one below, looks for it in `build/` by itself. The
+file appears with the first `make`, so run that once before opening the editor.
+
+**VS Code** takes three extensions:
+
+- **clangd** (`llvm-vs-code-extensions.vscode-clangd`): completion, errors as
+  you type, jumping to definitions. It offers to download clangd the first
+  time.
+- **CMake Tools** (`ms-vscode.cmake-tools`), which reads `CMakePresets.json`:
+  its presets are the Makefile's builds, in the same folders, and its Build,
+  Launch and Debug buttons, on the status bar, do what `make` and `make run`
+  do, the last under the debugger.
+- **C/C++** (`ms-vscode.cpptools`), for its debugger only. Turn its
+  IntelliSense off, as clangd's extension offers to, or two engines report two
+  sets of errors and completions: `"C_Cpp.intelliSenseEngine": "disabled"`.
+
+CMake Tools' Debug picks the debugger that fits the compiler: Microsoft's own,
+from the C/C++ extension, for clang-cl and MSVC, and GDB for GCC and MinGW (on
+MSYS2, `pacman -S mingw-w64-ucrt-x86_64-gdb`).
+
+On Windows, CMake Tools loads Visual Studio's x64 environment by itself, the
+one its prompt has, whenever `cl` is not on PATH already. With Visual Studio or
+its Build Tools installed, the debug build then gets clang-cl, or MSVC, as in
+that prompt. The setting `cmake.useVsDeveloperEnvironment` decides it:
+`"never"` leaves the build to MinGW, and `"always"` loads Visual Studio's in
+CMake Tools older than 1.24 too, which loaded it only when Ninja was not on
+PATH. A build directory keeps the compiler it was first configured with, so
+`make clean` after changing this.
+
+**LazyVim**: in `:LazyExtras`, enable `lang.clangd`, which installs clangd
+through Mason and brings codelldb for debugging, and `dap.core`, the
+debugger's interface; `lang.cmake` adds help with `CMakeLists.txt`. The
+template's `Makefile` marks its folder as the project, and clangd finds
+`build/compile_commands.json` from there: nothing else to set up, on Linux or
+on Windows. Build and play from a terminal, with `make` and `make run`.
+codelldb's "Launch file" asks for the program: `build/game`, or
+`build\game.exe` on Windows. Microsoft's debugger is not among the choices: it
+comes only with VS Code's C/C++ extension.
+
+**When clangd gets it wrong**, reporting errors the compiler does not or not
+completing the standard library, it has the wrong command for the file:
+
+- **It started before the file existed**, with the editor opened before the
+  first configure. It guesses then — `'raylib.h' file not found`, the wrong
+  standard — and goes on guessing once the file is there. Restart it: "clangd:
+  Restart language server" in VS Code, `:LspRestart` in Neovim.
+- **Two engines in VS Code**: the C/C++ extension's IntelliSense next to
+  clangd's (above).
+- **An old clangd.** Microsoft's C++ library refuses a Clang older than it
+  supports, with `error STL1000: Unexpected compiler version, expected Clang
+  19.0.0 or newer` in every file, and VS Code's clangd extension runs whichever
+  `clangd` comes first on PATH. Use the one the extension downloads, or Visual
+  Studio's own, next to its clang-cl: `clangd.path` set to
+  `VC/Tools/Llvm/x64/bin/clangd.exe` in Visual Studio's folder.
+- **MinGW by its plain name.** clangd finds Visual Studio's headers by itself,
+  and MinGW's through the compiler's path, whose name carries the target:
+  `x86_64-w64-mingw32-g++`, which the template picks by default, as does
+  `DEV_CPP_COMPILER "mingw"`. Plain `g++`, from `CC` and `CXX` or
+  `DEV_CPP_COMPILER "gcc"`, leaves clangd assuming MSVC; let it ask the
+  compiler instead, with `--query-driver=**/g++.exe` in VS Code's
+  `clangd.arguments`, or in LazyVim:
+
+  ```lua
+  -- lua/plugins/clangd.lua
+  return {
+    "neovim/nvim-lspconfig",
+    opts = function(_, opts)
+      table.insert(opts.servers.clangd.cmd, "--query-driver=**/g++.exe")
+    end,
+  }
+  ```
 
 ## The config
 
