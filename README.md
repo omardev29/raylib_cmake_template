@@ -400,12 +400,9 @@ standard.
 | C++ 23 | 11+ | 12+ | only as `/std:c++latest`, a preview | yes; before CMake 3.31 as `-std:c++latest`, the newest draft | yes |
 | C++ 26 | 14+, with CMake 3.30+ | 17+, with CMake 3.27+ | no | CMake 4.0+ | CMake 3.27+ |
 
-The "yes" entries for GCC, Clang and Emscripten were checked with GCC 13 (and
-MinGW's GCC 13), Clang 18 and Emscripten 6.0, in C and in C++, with raylib-cpp
-too. GCC 13 stops at C++26, as the table says it should. The MSVC column is
-CMake's own table. For clang-cl, which CMake drives with MSVC-style flags,
-what changes is CMake itself: the column gives the CMake version that first
-asks it for each standard.
+The MSVC column is CMake's own table. For clang-cl, which CMake drives with
+MSVC-style flags, what changes is CMake itself: the column gives the CMake
+version that first asks it for each standard.
 
 tcc ("tcc", below) is a C compiler only, and has C99 and C11: C17, which is
 C11 with its defects fixed and nothing new, compiles as tcc's C11, and C23 stops
@@ -740,7 +737,7 @@ As far as a binary goes while it still runs on any machine of its kind:
 raylib and GLFW get all of it too, not only your code. Measured on Linux, a
 plain CMake Release build of this template is 1,225 KB once stripped, and the
 `release` preset's is 451 KB; on the web, full LTO takes the `.wasm` from 127 KB
-to 110 KB.
+to 114 KB.
 
 What is deliberately left off, because each one trades something away:
 
@@ -953,7 +950,7 @@ to yield; raylib's `WindowShouldClose()` does that with `emscripten_sleep()`, an
 ASYNCIFY is what makes a sleep inside a normal function possible. It instruments
 every function that could be on the stack when that happens — most of them — and
 you pay in download size and a little speed, whether or not anything suspends.
-Measured with this template: the `.wasm` is 110 KB with ASYNCIFY and 83 KB
+Measured with this template: the `.wasm` is 114 KB with ASYNCIFY and 85 KB
 without, a third more.
 
 That trade is right for a template whose point is plain raylib. When the
@@ -1009,9 +1006,7 @@ int main() {
 
 **2. `CMakeLists.txt`.** In the web section, delete the `-sASYNCIFY` line.
 
-That is all: this exact file was built for the web without ASYNCIFY and for
-the desktop, and run in a browser and in a window. What changes in how you write
-the game:
+That is all. What changes in how you write the game:
 
 - **Never call `WindowShouldClose()` on the web path.** On the web, raylib's
   version yields with `emscripten_sleep()`, which only exists with ASYNCIFY.
@@ -1034,22 +1029,19 @@ the game:
 
 ### C++ exceptions on the web
 
-Emscripten compiles without them unless asked: a `throw` that the desktop
-build catches stops the game in the browser instead. These lines, in the "for
-every target" section of `CMakeLists.txt`, turn them on for the web, in your
-code and in any library you add:
+`throw` and `catch` work in the browser as they do on the desktop. Emscripten
+leaves exceptions out unless asked, and a `throw` would then stop the game
+instead of reaching its `catch`, so `CMakeLists.txt` asks for them, with
+`-fexceptions` in its "for every target" section. They cost 4% of the `.wasm`
+(110 KB to 114 KB). A game that catches nothing, in its own code or in a
+library it adds, can delete those lines and save that.
 
-```cmake
-if(EMSCRIPTEN)
-  add_compile_options(-fexceptions)
-  add_link_options(-fexceptions)
-endif()
-```
-
-Measured with this template, they cost 4% of the `.wasm` (110 KB to 114 KB).
-The faster kind of exceptions, `-fwasm-exceptions`, does not mix with
-ASYNCIFY, as Emscripten itself warns when linking: with a `try` in `main()`,
-the game stops with `unreachable` as soon as its loop starts.
+As in a desktop release, an exception cannot cross raylib's C code: one thrown
+in a callback that raylib calls, such as `SetTraceLogCallback()`'s, stops the
+game rather than reaching a `catch` around the raylib call. The faster kind of
+exceptions, `-fwasm-exceptions`, does not mix with ASYNCIFY, as Emscripten
+itself warns when linking: with a `try` in `main()`, the game stops with
+`unreachable` as soon as its loop starts.
 
 ## A text console (DRM)
 
@@ -1230,7 +1222,7 @@ only things that are not negotiable:
 |---|---|---|
 | top | reads `config.cmake`, checks it, defaults to a Debug build | New settings go in `config.cmake`, their checks in `cmake/check_config.cmake`. |
 | toolchain | `DEV_C_COMPILER`, `DEV_CPP_COMPILER` and `DEV_LINKER`; Windows' default compiler; the check of what `project()` found, and the banner; tcc | Keep the order (rule 1). Never use them? Delete the includes, the files, their settings and checks, and the `add_dependencies()` on `banner`. |
-| for every target | standards, static linking, the MSVC runtime, MSVC's UTF-8 and `__cplusplus`, `compile_commands.json`, ccache, `-O0` in debug, production optimization | Flags for every target go here (rule 2; "Compiler flags", below). ccache can go. |
+| for every target | standards, static linking, the MSVC runtime, MSVC's UTF-8 and `__cplusplus`, C++ exceptions on the web, `compile_commands.json`, ccache, `-O0` in debug, production optimization | Flags for every target go here (rule 2; "Compiler flags", below). ccache can go. |
 | raylib | backend, Wayland, disabled modules, raylib's and GLFW's warnings, waiting for the banner | Tied to `config.cmake` and to raylib's own CMake — see "Updating raylib". |
 | your game | sources, `include/`, libraries, the C++ link for tcc, warnings, MinGW `-static`, the Windows manifest, `RESOURCES_PATH`, no console on Windows, copying `resources/` | Where your additions go. Keep `RESOURCES_PATH` while your code uses it. |
 | web | `.html` output, ASYNCIFY, memory, the resources bundle | ASYNCIFY is tied to `main.cpp` (see above); the bundle to `RESOURCES_PATH`. |

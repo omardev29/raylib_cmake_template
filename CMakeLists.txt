@@ -54,6 +54,16 @@ if(MSVC)
   add_compile_options(/utf-8 $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>)
 endif()
 
+# The web: C++ exceptions, as every other platform has them. Emscripten leaves
+# them out unless asked, and a throw would stop the game instead of reaching
+# its catch. For C++ only, as on the desktop: C built without them never
+# throws, so C++ calls raylib directly, not through JavaScript as Emscripten
+# calls whatever might throw. README.md, "C++ exceptions on the web".
+if(EMSCRIPTEN)
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
+  add_link_options(-fexceptions)
+endif()
+
 # build/compile_commands.json, which editors read to understand your code.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -87,7 +97,7 @@ if(PRODUCTION_BUILD)
   if(EMSCRIPTEN)
     # Size first: on the web, the download is what the player waits for. So -Oz
     # rather than -O3, and full LTO rather than the ThinLTO CMake would pick
-    # here, which takes twice as much off the .wasm.
+    # here, which takes three times as much off the .wasm.
     add_compile_options(-Oz -flto)
     add_link_options(-Oz -flto)
   else()
