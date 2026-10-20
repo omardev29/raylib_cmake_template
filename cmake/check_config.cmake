@@ -35,7 +35,7 @@ if(NOT "${GAME_NAME}" MATCHES "^[A-Za-z0-9_-]+$")
     "config.cmake: GAME_NAME \"${GAME_NAME}\" becomes a file name on every system. "
     "Use letters, digits, _ and - only.")
 endif()
-if(GAME_NAME MATCHES "^(raylib|glfw|run|copy_resources|banner|tcc_runtime)$")
+if(GAME_NAME MATCHES "^(raylib|glfw|run|copy_resources|banner|tcc_runtime|windows_manifest)$")
   message(FATAL_ERROR
     "config.cmake: GAME_NAME \"${GAME_NAME}\" is the name of a target the build "
     "already has. Pick another one.")

@@ -60,6 +60,13 @@ which compares every source, header and compiler flag with what it built last.
 So `make run` after an edit compiles just what the edit touched and plays, and
 with no edit it plays straight away.
 
+A build directory belongs to the folder it was made in: it holds that
+folder's full path. Moved or renamed the project? `make clean` first, or every
+build stops on CMake errors. Starting a new game from a copy of this one? Copy
+it without `build/`, or `make clean` in the copy: otherwise the copy's builds
+keep compiling the original folder's files, and your edits in the copy never
+reach its game.
+
 ## Setting up
 
 You need CMake 3.25 or newer, Ninja, a C/C++ compiler and, for the commands
@@ -1024,6 +1031,25 @@ the game:
 
 `__EMSCRIPTEN__` is defined by the compiler in every web build; raylib's own
 `PLATFORM_WEB` works as well.
+
+### C++ exceptions on the web
+
+Emscripten compiles without them unless asked: a `throw` that the desktop
+build catches stops the game in the browser instead. These lines, in the "for
+every target" section of `CMakeLists.txt`, turn them on for the web, in your
+code and in any library you add:
+
+```cmake
+if(EMSCRIPTEN)
+  add_compile_options(-fexceptions)
+  add_link_options(-fexceptions)
+endif()
+```
+
+Measured with this template, they cost 4% of the `.wasm` (110 KB to 114 KB).
+The faster kind of exceptions, `-fwasm-exceptions`, does not mix with
+ASYNCIFY, as Emscripten itself warns when linking: with a `try` in `main()`,
+the game stops with `unreachable` as soon as its loop starts.
 
 ## A text console (DRM)
 

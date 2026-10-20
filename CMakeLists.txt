@@ -262,6 +262,11 @@ endif()
 # as CMake writes its own: rc.exe reads one in the machine's code page unless
 # told otherwise, and the manifest's path can have that é in it. Their linker
 # would add a manifest of its own, a second one: /MANIFEST:NO.
+#
+# The resource compiles as a target of its own, without the game's include
+# directories, which it does not need: the windres of some MinGW builds
+# (winlibs, Scoop's) hands those to its preprocessor split at every space, and
+# the project's own folder can have one.
 if(WIN32)
   if(MSVC)
     set(WINDOWS_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/cmake/windows.manifest")
@@ -269,11 +274,13 @@ if(WIN32)
 #pragma code_page(65001)
 1 24 "@WINDOWS_MANIFEST@"
 ]])
-    target_sources(${GAME_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/windows.rc")
+    add_library(windows_manifest OBJECT "${CMAKE_CURRENT_BINARY_DIR}/windows.rc")
     target_link_options(${GAME_NAME} PRIVATE /MANIFEST:NO)
   else()
-    target_sources(${GAME_NAME} PRIVATE cmake/windows.rc)
+    add_library(windows_manifest OBJECT cmake/windows.rc)
   endif()
+  target_link_libraries(${GAME_NAME} PRIVATE windows_manifest)
+  add_dependencies(windows_manifest banner) # so the banner still comes first
 endif()
 
 # make sanitize with MSVC: AddressSanitizer's DLL next to the game, so that
