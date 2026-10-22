@@ -631,6 +631,35 @@ that tcc left where only tcc's own linker looks into the relocation, where
 every linker looks; uncorrected, every function of a file sits where the file's
 first one does. 0.9.27's objects come out as they went in.
 
+
+### GitHub Codespaces / Dev Container
+
+The repo includes `.devcontainer/`, so the environment (compiler, CMake, Ninja,
+raylib dependencies, tcc, gdb, clangd) comes preinstalled. Just open it in a
+Codespace or in VS Code with "Reopen in Container".
+
+**Viewing the game window (virtual desktop)**
+
+A Codespace has no display, so the game is shown on a lightweight desktop
+(Fluxbox + noVNC) that you view in your browser:
+
+1. Open the **Ports** tab in VS Code.
+2. On port **6080** (*Escritorio (noVNC)*), click the globe icon to open it in the browser.
+3. Click **Connect** and enter the password `vscode`.
+4. In the Codespace terminal, run:
+
+```
+   make run
+```
+
+   The raylib window appears on the desktop in your browser.
+
+Notes:
+- OpenGL runs in software (Mesa llvmpipe), so FPS will be lower than on a real machine. It's good for testing, not for measuring performance.
+- If the window doesn't appear, check that `echo $DISPLAY` returns `:1`.
+- The first time you open the Codespace, the container takes a few minutes to build; after that, only seconds.
+
+
 ## Resources
 
 Put files in `resources/` and load them with `RESOURCES_PATH`:
