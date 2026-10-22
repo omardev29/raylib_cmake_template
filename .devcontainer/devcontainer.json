@@ -1,0 +1,43 @@
+{
+  "name": "raylib CMake template",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {
+      "password": "vscode",
+      "webPort": "6080",
+      "vncPort": "5901"
+    }
+  },
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "LIBGL_ALWAYS_SOFTWARE": "1"
+  },
+  "postStartCommand": "sleep 3; DISPLAY=:1 feh --bg-fill .devcontainer/wallpaper.png",
+  "forwardPorts": [6080],
+  "portsAttributes": {
+    "6080": {
+      "label": "Escritorio (noVNC)",
+      "onAutoForward": "notify"
+    },
+    "5901": {
+      "label": "VNC",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools"
+      ],
+      "settings": {
+        "C_Cpp.intelliSenseEngine": "disabled",
+        "clangd.path": "/usr/bin/clangd",
+        "cmake.useVsDeveloperEnvironment": "never"
+      }
+    }
+  }
+}
